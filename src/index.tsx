@@ -86,7 +86,9 @@ function loadChanges(setError: (value: string | null) => void): ChangeItem[] {
 
   const workingDiff = runGit(["diff", "--patch", "--no-color"]).stdout;
   const stagedDiff = runGit(["diff", "--cached", "--patch", "--no-color"]).stdout;
-  const statusMap = parseStatus(runGit(["status", "--porcelain=v1", "-z"]).stdout);
+  const statusMap = parseStatus(
+    runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"]).stdout
+  );
 
   const items = new Map<string, ChangeItem>();
   const diffs = [workingDiff, stagedDiff].filter((diff) => diff.trim().length > 0);
