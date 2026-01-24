@@ -1,4 +1,11 @@
-export type ChangeStatus = "modified" | "added" | "deleted" | "renamed" | "untracked";
+export type ChangeStatus =
+  | "modified"
+  | "added"
+  | "deleted"
+  | "renamed"
+  | "copied"
+  | "untracked"
+  | "conflict";
 
 export type ChangeItem = {
   path: string;

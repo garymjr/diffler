@@ -5,6 +5,7 @@ import { createEffect, createMemo, createResource, createSignal, Show, onMount }
 import path from "node:path";
 import { ChangesPanel } from "./changes-panel";
 import { resolveLanguage } from "./language";
+import { catppuccinMochaSyntax } from "./syntax-theme";
 import type { ChangeItem, ChangeStatus, DiffData } from "./types";
 
 const decoder = new TextDecoder();
@@ -20,25 +21,40 @@ function runGit(args: string[]) {
   };
 }
 
+function statusFromXY(x: string, y: string) {
+  if (x === "!" || y === "!") return { status: null, needsExtraPath: false };
+  if (x === "?" || y === "?") return { status: "untracked" as const, needsExtraPath: false };
+  if (x === "U" || y === "U") return { status: "conflict" as const, needsExtraPath: false };
+  if (x === "D" || y === "D") return { status: "deleted" as const, needsExtraPath: false };
+  if (x === "A" || y === "A") return { status: "added" as const, needsExtraPath: false };
+  if (x === "R" || y === "R") return { status: "renamed" as const, needsExtraPath: true };
+  if (x === "C" || y === "C") return { status: "copied" as const, needsExtraPath: true };
+  return { status: "modified" as const, needsExtraPath: false };
+}
+
 function parseStatus(output: string) {
   const map = new Map<string, Pick<ChangeItem, "status" | "oldPath">>();
-  const lines = output.split("\n").filter(Boolean);
+  if (!output) return map;
+  const entries = output.split("\0").filter(Boolean);
 
-  for (const line of lines) {
-    const code = line.slice(0, 2);
-    const rest = line.slice(3).trim();
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (entry.length < 3) continue;
+    const code = entry.slice(0, 2);
+    const path = entry.slice(3);
+    const { status, needsExtraPath } = statusFromXY(code[0], code[1]);
+    if (!status) continue;
 
-    if (code === "??") {
-      map.set(rest, { status: "untracked" });
-      continue;
-    }
-
-    if (code.includes("R")) {
-      const [oldPath, newPath] = rest.split(" -> ");
-      if (newPath) {
-        map.set(newPath, { status: "renamed", oldPath });
+    if (needsExtraPath) {
+      const oldPath = entries[index + 1];
+      if (oldPath) {
+        map.set(path, { status, oldPath });
+        index += 1;
+        continue;
       }
     }
+
+    map.set(path, { status });
   }
 
   return map;
@@ -53,6 +69,9 @@ function mapChangeType(type: string | undefined): ChangeStatus {
     case "rename-pure":
     case "rename-changed":
       return "renamed";
+    case "copy-pure":
+    case "copy-changed":
+      return "copied";
     default:
       return "modified";
   }
@@ -67,7 +86,7 @@ function loadChanges(setError: (value: string | null) => void): ChangeItem[] {
 
   const workingDiff = runGit(["diff", "--patch", "--no-color"]).stdout;
   const stagedDiff = runGit(["diff", "--cached", "--patch", "--no-color"]).stdout;
-  const statusMap = parseStatus(runGit(["status", "--porcelain"]).stdout);
+  const statusMap = parseStatus(runGit(["status", "--porcelain=v1", "-z"]).stdout);
 
   const items = new Map<string, ChangeItem>();
   const diffs = [workingDiff, stagedDiff].filter((diff) => diff.trim().length > 0);
@@ -123,8 +142,12 @@ function statusLabel(status: ChangeStatus | undefined) {
   switch (status) {
     case "added":
       return "A";
+    case "copied":
+      return "C";
     case "deleted":
       return "D";
+    case "conflict":
+      return "U";
     case "untracked":
       return "??";
     default:
@@ -136,7 +159,11 @@ function statusColor(status: ChangeStatus | undefined) {
   switch (status) {
     case "added":
       return colors.green;
+    case "copied":
+      return colors.green;
     case "deleted":
+      return colors.red;
+    case "conflict":
       return colors.red;
     case "untracked":
       return colors.yellow;
@@ -487,6 +514,7 @@ function App() {
                       diff={data().diff}
                       view="unified"
                       filetype={data().language}
+                      syntaxStyle={catppuccinMochaSyntax}
                       showLineNumbers
                     />
                   </Show>
