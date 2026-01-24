@@ -39,6 +39,15 @@ export function HelpPanel(props: HelpPanelProps) {
         <box width="100%" backgroundColor={props.colors.mantle}>
           <text fg={props.colors.text}>h/l/left/right file  j/k scroll</text>
         </box>
+        <box width="100%" backgroundColor={props.colors.mantle}>
+          <text fg={props.colors.text}>mouse drag select</text>
+        </box>
+        <box width="100%" backgroundColor={props.colors.mantle}>
+          <text fg={props.colors.text}>c comment selection</text>
+        </box>
+        <box width="100%" backgroundColor={props.colors.mantle}>
+          <text fg={props.colors.text}>y copy comments (file)</text>
+        </box>
       </box>
       <box width="55%" flexDirection="column" gap={0}>
         <box width="100%" backgroundColor={props.colors.mantle}>

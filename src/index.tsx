@@ -1,47 +1,19 @@
-import type { ScrollBoxRenderable } from "@opentui/core";
-import { render, useKeyboard, useRenderer } from "@opentui/solid";
+import type { DiffRenderable, ScrollBoxRenderable } from "@opentui/core";
+import { render, useRenderer } from "@opentui/solid";
 import { createEffect, createMemo, createResource, createSignal, onMount, Show } from "solid-js";
 import path from "node:path";
 import { ChangesPanel } from "./changes-panel";
+import { CommentPanel } from "./comment-panel";
 import { HelpPanel } from "./help-panel";
 import { loadChanges, loadDiff } from "./git";
 import { ThemePanel } from "./theme-panel";
-import { catppuccinThemes, themeOrder, type Theme, type ThemeColors, type ThemeName } from "./theme";
-import type { ChangeItem, ChangeStatus } from "./types";
-
-function statusLabel(status: ChangeStatus | undefined) {
-  switch (status) {
-    case "added":
-      return "A";
-    case "copied":
-      return "C";
-    case "deleted":
-      return "D";
-    case "conflict":
-      return "U";
-    case "untracked":
-      return "??";
-    default:
-      return "M";
-  }
-}
-
-function statusColor(status: ChangeStatus | undefined, colors: ThemeColors) {
-  switch (status) {
-    case "added":
-      return colors.green;
-    case "copied":
-      return colors.green;
-    case "deleted":
-      return colors.red;
-    case "conflict":
-      return colors.red;
-    case "untracked":
-      return colors.yellow;
-    default:
-      return colors.blue;
-  }
-}
+import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./theme";
+import type { ChangeItem } from "./types";
+import { copyToClipboard } from "./clipboard";
+import { buildDiffLines, formatCommentEntries, type CommentEntry, type SelectionInfo } from "./comments";
+import { statusColor, statusLabel } from "./status";
+import { useAppKeyboard } from "./use-app-keyboard";
+import { useDiffSelection } from "./use-diff-selection";
 
 function App() {
   const renderer = useRenderer();
@@ -55,12 +27,22 @@ function App() {
   const [isThemePanelOpen, setIsThemePanelOpen] = createSignal(false);
   const [themeIndex, setThemeIndex] = createSignal(0);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = createSignal(false);
+  const [isCommentPanelOpen, setIsCommentPanelOpen] = createSignal(false);
+  const [isCommentFocused, setIsCommentFocused] = createSignal(false);
+  const [commentDraft, setCommentDraft] = createSignal("");
+  const [selectionInfo, setSelectionInfo] = createSignal<SelectionInfo | null>(null);
+  const [commentSelection, setCommentSelection] = createSignal<SelectionInfo | null>(null);
+  const [comments, setComments] = createSignal<CommentEntry[]>([]);
+  const [statusMessage, setStatusMessage] = createSignal<string | null>(null);
+  const [ignoreNextCommentInput, setIgnoreNextCommentInput] = createSignal(false);
   const theme = createMemo(() => catppuccinThemes[themeName()]);
   const colors = createMemo(() => theme().colors);
   const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
   let diffScroll: ScrollBoxRenderable | undefined;
   let panelScroll: ScrollBoxRenderable | undefined;
+  let diffRenderable: DiffRenderable | undefined;
   let lastPanelIndex = 0;
+  let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
   onMount(() => {
     setChanges(loadChanges(setError));
@@ -105,7 +87,6 @@ function App() {
     if (index < 0 || index >= entries.length) return null;
     return entries[index];
   });
-
   const openPanel = () => {
     setPanelQuery("");
     setPanelIndex(0);
@@ -113,7 +94,6 @@ function App() {
     setIsThemePanelOpen(false);
     setIsHelpPanelOpen(false);
   };
-
   const closePanel = () => {
     setIsPanelOpen(false);
   };
@@ -123,9 +103,105 @@ function App() {
     setIsThemePanelOpen(true);
     setIsHelpPanelOpen(false);
   };
-
   const closeThemePanel = () => {
     setIsThemePanelOpen(false);
+  };
+
+  const setStatus = (message: string) => {
+    setStatusMessage(message);
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => {
+      setStatusMessage(null);
+    }, 2200);
+  };
+  const openCommentPanel = () => {
+    const selection = selectionInfo();
+    if (!selection) {
+      setStatus("No selection.");
+      return;
+    }
+    setCommentSelection(selection);
+    setCommentDraft("");
+    setIgnoreNextCommentInput(true);
+    setIsCommentPanelOpen(true);
+    setIsCommentFocused(false);
+    queueMicrotask(() => {
+      setIsCommentFocused(true);
+    });
+    setIsPanelOpen(false);
+    setIsThemePanelOpen(false);
+    setIsHelpPanelOpen(false);
+  };
+  const closeCommentPanel = () => {
+    setIsCommentPanelOpen(false);
+    setIsCommentFocused(false);
+    setIgnoreNextCommentInput(false);
+  };
+  const saveComment = () => {
+    const selection = commentSelection();
+    if (!selection) {
+      setStatus("No selection.");
+      return;
+    }
+    const comment = commentDraft().trim();
+    if (!comment) {
+      setStatus("Comment empty.");
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `comment-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const entry: CommentEntry = {
+      id,
+      filePath: selection.filePath,
+      selectionText: selection.text.trimEnd(),
+      lineLabel: selection.lineLabel,
+      oldRange: selection.oldRange,
+      newRange: selection.newRange,
+      comment,
+      createdAt: Date.now(),
+    };
+    setComments((prev) => [...prev, entry]);
+    setCommentDraft("");
+    setIgnoreNextCommentInput(false);
+    setIsCommentPanelOpen(false);
+    setIsCommentFocused(false);
+    setStatus("Saved comment.");
+  };
+
+  const handleCommentChange = (value: string) => {
+    if (ignoreNextCommentInput()) {
+      if (value === "") {
+        setCommentDraft("");
+        return;
+      }
+      setIgnoreNextCommentInput(false);
+      if (value === "c") {
+        setCommentDraft("");
+        return;
+      }
+    }
+    setCommentDraft(value);
+  };
+
+  const copyAllComments = () => {
+    const filePath = selectedPath();
+    if (!filePath) {
+      setStatus("No file selected.");
+      return;
+    }
+    const fileComments = comments().filter((entry) => entry.filePath === filePath);
+    if (fileComments.length === 0) {
+      setStatus("No comments for file.");
+      return;
+    }
+    const result = copyToClipboard(formatCommentEntries(fileComments));
+    if (result.ok) {
+      setStatus("Copied file comments.");
+    } else {
+      setStatus(`Copy failed: ${result.error ?? "unknown error"}`);
+    }
   };
 
   const movePanelSelection = (delta: number) => {
@@ -203,152 +279,11 @@ function App() {
     }
   });
 
-  useKeyboard((key) => {
-    if (isThemePanelOpen()) {
-      if (key.name === "escape" || key.name === "t") {
-        closeThemePanel();
-        return;
-      }
-      if (key.name === "enter" || key.name === "return") {
-        const entries = themeEntries();
-        const selected = entries[themeIndex()];
-        if (selected) {
-          setThemeName(selected.name);
-        }
-        closeThemePanel();
-        return;
-      }
-      if (key.name === "k") {
-        moveThemeSelection(-1);
-        return;
-      }
-      if (key.name === "j") {
-        moveThemeSelection(1);
-        return;
-      }
-      if (key.name === "up" || key.sequence === "\u001b[A") {
-        moveThemeSelection(-1);
-        return;
-      }
-      if (key.name === "down" || key.sequence === "\u001b[B") {
-        moveThemeSelection(1);
-        return;
-      }
-      return;
-    }
-
-    if (isPanelOpen()) {
-      if (key.name === "escape") {
-        closePanel();
-        return;
-      }
-      if (key.name === "enter" || key.name === "return") {
-        const selected = panelSelected();
-        if (selected) {
-          setSelectedPath(selected.path);
-        }
-        closePanel();
-        return;
-      }
-      if (key.ctrl && key.name === "p") {
-        movePanelSelection(-1);
-        return;
-      }
-      if (key.ctrl && key.name === "n") {
-        movePanelSelection(1);
-        return;
-      }
-      if (key.name === "k") {
-        movePanelSelection(-1);
-        return;
-      }
-      if (key.name === "j") {
-        movePanelSelection(1);
-        return;
-      }
-      if (key.name === "up" || key.sequence === "\u001b[A") {
-        movePanelSelection(-1);
-        return;
-      }
-      if (key.name === "down" || key.sequence === "\u001b[B") {
-        movePanelSelection(1);
-        return;
-      }
-      if (key.name === "backspace") {
-        setPanelQuery((value) => value.slice(0, -1));
-        return;
-      }
-      if (key.name === "space") {
-        setPanelQuery((value) => `${value} `);
-        return;
-      }
-      if (!key.ctrl && !key.meta && !key.option && key.name.length === 1) {
-        const nextChar = key.shift ? key.name.toUpperCase() : key.name;
-        setPanelQuery((value) => `${value}${nextChar}`);
-        return;
-      }
-      return;
-    }
-
-    const isHelpKey = key.name === "?" || (key.name === "/" && key.shift);
-    if (isHelpPanelOpen()) {
-      if (key.name === "escape" || isHelpKey) {
-        setIsHelpPanelOpen(false);
-      }
-      return;
-    }
-    if (isHelpKey) {
-      setIsHelpPanelOpen(true);
-      return;
-    }
-
-    if (key.name === "p") {
-      openPanel();
-      return;
-    }
-
-    if (key.name === "t") {
-      openThemePanel();
-      return;
-    }
-
-    if (key.name === "q" || key.name === "escape") {
-      renderer.destroy();
-      return;
-    }
-
-    if (key.name === "r") {
-      setChanges(loadChanges(setError));
-      return;
-    }
-
-    if (key.name === "j") {
-      diffScroll?.scrollBy(1);
-      return;
-    }
-
-    if (key.name === "k") {
-      diffScroll?.scrollBy(-1);
-      return;
-    }
-
-    if (key.name !== "h" && key.name !== "l" && key.name !== "left" && key.name !== "right") return;
-
-    const files = fileEntries();
-    if (files.length === 0) {
-      return;
-    }
-
-    const currentIndex = Math.max(
-      0,
-      files.findIndex((entry) => entry.path === selectedPath())
-    );
-    const isUp = key.name === "h" || key.name === "left";
-    const nextIndex = isUp
-      ? Math.max(0, currentIndex - 1)
-      : Math.min(files.length - 1, currentIndex + 1);
-
-    setSelectedPath(files[nextIndex].path);
+  createEffect(() => {
+    selectedPath();
+    setSelectionInfo(null);
+    setCommentSelection(null);
+    setIsCommentPanelOpen(false);
   });
 
   const [diffData] = createResource(selectedPath, async (pathValue) => {
@@ -356,6 +291,55 @@ function App() {
     const change = changeMap().get(pathValue);
     if (!change) return null;
     return loadDiff(change);
+  });
+
+  const diffLines = createMemo(() => buildDiffLines(diffData()?.diff ?? ""));
+  const fileCommentCount = createMemo(() => {
+    const filePath = selectedPath();
+    if (!filePath) return 0;
+    return comments().filter((entry) => entry.filePath === filePath).length;
+  });
+
+  const refreshChanges = () => {
+    setChanges(loadChanges(setError));
+  };
+
+  useAppKeyboard({
+    renderer,
+    isCommentPanelOpen,
+    closeCommentPanel,
+    saveComment,
+    isThemePanelOpen,
+    closeThemePanel,
+    themeEntries,
+    themeIndex,
+    setThemeName,
+    moveThemeSelection,
+    isPanelOpen,
+    closePanel,
+    panelSelected,
+    setSelectedPath,
+    movePanelSelection,
+    setPanelQuery,
+    isHelpPanelOpen,
+    setIsHelpPanelOpen,
+    openPanel,
+    openThemePanel,
+    openCommentPanel,
+    copyAllComments,
+    refreshChanges,
+    diffScroll: () => diffScroll,
+    fileEntries,
+    selectedPath,
+  });
+
+  useDiffSelection({
+    isBlocked: () =>
+      isPanelOpen() || isThemePanelOpen() || isHelpPanelOpen() || isCommentPanelOpen(),
+    selectedPath,
+    diffLines,
+    diffRenderable: () => diffRenderable,
+    setSelectionInfo,
   });
 
   return (
@@ -419,7 +403,9 @@ function App() {
               diffScroll = el;
             }}
             height="100%"
-            focused={!isPanelOpen()}
+            focused={
+              !isPanelOpen() && !isThemePanelOpen() && !isHelpPanelOpen() && !isCommentPanelOpen()
+            }
           >
             <Show
               when={selectedPath()}
@@ -435,6 +421,9 @@ function App() {
                     fallback={<text fg={colors().subtext0}>No diff for this file.</text>}
                   >
                     <diff
+                      ref={(el) => {
+                        diffRenderable = el;
+                      }}
                       diff={data().diff}
                       view="unified"
                       filetype={data().language}
@@ -470,10 +459,23 @@ function App() {
         alignItems="center"
         backgroundColor={colors().mantle}
       >
-        <box flexGrow={1} />
+        <box flexGrow={1} flexDirection="row" gap={2}>
+          <Show when={statusMessage()}>
+            {(message) => <text fg={colors().subtext0}>{message()}</text>}
+          </Show>
+          <text fg={colors().subtext0}>comments: {fileCommentCount()}</text>
+        </box>
         <text fg={colors().subtext0}>? help</text>
       </box>
 
+      <CommentPanel
+        isOpen={isCommentPanelOpen()}
+        isFocused={isCommentFocused()}
+        colors={colors()}
+        selection={commentSelection()}
+        comment={commentDraft()}
+        onCommentChange={handleCommentChange}
+      />
       <ChangesPanel
         isOpen={isPanelOpen()}
         query={panelQuery()}
