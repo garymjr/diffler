@@ -1,24 +1,11 @@
-import { getFiletypeFromFileName, parsePatchFiles } from "@pierre/diffs";
+import { parsePatchFiles } from "@pierre/diffs";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { render, useKeyboard, useRenderer } from "@opentui/solid";
 import { createEffect, createMemo, createResource, createSignal, Show, onMount } from "solid-js";
 import path from "node:path";
-
-type ChangeStatus = "modified" | "added" | "deleted" | "renamed" | "untracked";
-
-type ChangeItem = {
-  path: string;
-  status: ChangeStatus;
-  oldPath?: string;
-  hunks?: number;
-};
-
-type DiffData = {
-  diff: string;
-  language?: string;
-  added: number;
-  deleted: number;
-};
+import { ChangesPanel } from "./changes-panel";
+import { resolveLanguage } from "./language";
+import type { ChangeItem, ChangeStatus, DiffData } from "./types";
 
 const decoder = new TextDecoder();
 
@@ -132,35 +119,6 @@ function loadChanges(setError: (value: string | null) => void): ChangeItem[] {
   return Array.from(items.values()).sort((a, b) => a.path.localeCompare(b.path));
 }
 
-const languageByExtension: Record<string, string> = {
-  ".ts": "typescript",
-  ".tsx": "typescript",
-  ".js": "javascript",
-  ".jsx": "javascript",
-  ".json": "json",
-  ".md": "markdown",
-  ".css": "css",
-  ".html": "html",
-  ".yml": "yaml",
-  ".yaml": "yaml",
-  ".go": "go",
-  ".rs": "rust",
-  ".py": "python",
-  ".sh": "bash",
-};
-
-function resolveLanguage(filePath: string) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext && languageByExtension[ext]) {
-    return languageByExtension[ext];
-  }
-  const lang = getFiletypeFromFileName(filePath);
-  if (!lang || lang === "text" || lang === "ansi") {
-    return undefined;
-  }
-  return lang;
-}
-
 function statusLabel(status: ChangeStatus | undefined) {
   switch (status) {
     case "added":
@@ -240,13 +198,23 @@ function App() {
   const [error, setError] = createSignal<string | null>(null);
   const [changes, setChanges] = createSignal<ChangeItem[]>([]);
   const [selectedPath, setSelectedPath] = createSignal<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = createSignal(false);
+  const [panelQuery, setPanelQuery] = createSignal("");
+  const [panelIndex, setPanelIndex] = createSignal(0);
   let diffScroll: ScrollBoxRenderable | undefined;
+  let panelScroll: ScrollBoxRenderable | undefined;
+  let lastPanelIndex = 0;
 
   onMount(() => {
     setChanges(loadChanges(setError));
   });
 
   const fileEntries = createMemo(() => changes());
+  const filteredEntries = createMemo(() => {
+    const query = panelQuery().trim().toLowerCase();
+    if (!query) return fileEntries();
+    return fileEntries().filter((entry) => entry.path.toLowerCase().includes(query));
+  });
   const changeMap = createMemo(() => {
     const map = new Map<string, ChangeItem>();
     for (const change of changes()) {
@@ -274,6 +242,59 @@ function App() {
     const index = selectedIndex();
     return hasMultipleFiles() && index >= 0 && index < fileEntries().length - 1;
   });
+  const panelSelected = createMemo(() => {
+    const entries = filteredEntries();
+    const index = panelIndex();
+    if (index < 0 || index >= entries.length) return null;
+    return entries[index];
+  });
+
+  const openPanel = () => {
+    setPanelQuery("");
+    setPanelIndex(0);
+    setIsPanelOpen(true);
+  };
+
+  const closePanel = () => {
+    setIsPanelOpen(false);
+  };
+
+  const movePanelSelection = (delta: number) => {
+    const entries = filteredEntries();
+    if (entries.length === 0) {
+      setPanelIndex(-1);
+      return;
+    }
+    const nextIndex = Math.max(0, Math.min(entries.length - 1, panelIndex() + delta));
+    setPanelIndex(nextIndex);
+  };
+
+  createEffect(() => {
+    if (!isPanelOpen()) return;
+    const entries = filteredEntries();
+    if (entries.length === 0) {
+      if (panelIndex() !== -1) setPanelIndex(-1);
+      return;
+    }
+    if (panelIndex() < 0) {
+      setPanelIndex(0);
+      return;
+    }
+    if (panelIndex() >= entries.length) {
+      setPanelIndex(entries.length - 1);
+    }
+  });
+
+  createEffect(() => {
+    if (!isPanelOpen()) return;
+    const index = panelIndex();
+    if (!panelScroll || index < 0) return;
+    const delta = index - lastPanelIndex;
+    if (delta !== 0) {
+      panelScroll.scrollBy(delta);
+      lastPanelIndex = index;
+    }
+  });
 
   createEffect(() => {
     const files = fileEntries();
@@ -288,6 +309,64 @@ function App() {
   });
 
   useKeyboard((key) => {
+    if (isPanelOpen()) {
+      if (key.name === "escape") {
+        closePanel();
+        return;
+      }
+      if (key.name === "enter" || key.name === "return") {
+        const selected = panelSelected();
+        if (selected) {
+          setSelectedPath(selected.path);
+        }
+        closePanel();
+        return;
+      }
+      if (key.ctrl && key.name === "p") {
+        movePanelSelection(-1);
+        return;
+      }
+      if (key.ctrl && key.name === "n") {
+        movePanelSelection(1);
+        return;
+      }
+      if (key.name === "k") {
+        movePanelSelection(-1);
+        return;
+      }
+      if (key.name === "j") {
+        movePanelSelection(1);
+        return;
+      }
+      if (key.name === "up" || key.sequence === "\u001b[A") {
+        movePanelSelection(-1);
+        return;
+      }
+      if (key.name === "down" || key.sequence === "\u001b[B") {
+        movePanelSelection(1);
+        return;
+      }
+      if (key.name === "backspace") {
+        setPanelQuery((value) => value.slice(0, -1));
+        return;
+      }
+      if (key.name === "space") {
+        setPanelQuery((value) => `${value} `);
+        return;
+      }
+      if (!key.ctrl && !key.meta && !key.option && key.name.length === 1) {
+        const nextChar = key.shift ? key.name.toUpperCase() : key.name;
+        setPanelQuery((value) => `${value}${nextChar}`);
+        return;
+      }
+      return;
+    }
+
+    if (key.name === "p") {
+      openPanel();
+      return;
+    }
+
     if (key.name === "q" || key.name === "escape") {
       renderer.destroy();
       return;
@@ -395,7 +474,7 @@ function App() {
               diffScroll = el;
             }}
             height="100%"
-            focused
+            focused={!isPanelOpen()}
           >
             <Show when={selectedPath()} fallback={<text fg="#888888">No local changes.</text>}>
               <Show when={diffData()} fallback={<text fg="#888888">Loading diff…</text>}>
@@ -429,8 +508,22 @@ function App() {
         alignItems="center"
         backgroundColor={colors.mantle}
       >
-        <text fg={colors.subtext0}>q/esc quit  r refresh  h/l/←/→ file  j/k scroll</text>
+        <text fg={colors.subtext0}>q/esc quit  r refresh  p files  h/l/←/→ file  j/k scroll</text>
       </box>
+
+      <ChangesPanel
+        isOpen={isPanelOpen()}
+        query={panelQuery()}
+        entries={filteredEntries()}
+        selectedIndex={panelIndex()}
+        colors={colors}
+        statusLabel={statusLabel}
+        statusColor={statusColor}
+        onQueryChange={setPanelQuery}
+        onScrollRef={(el) => {
+          panelScroll = el;
+        }}
+      />
     </box>
   );
 }
