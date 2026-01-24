@@ -3,6 +3,7 @@ import { render, useKeyboard, useRenderer } from "@opentui/solid";
 import { createEffect, createMemo, createResource, createSignal, onMount, Show } from "solid-js";
 import path from "node:path";
 import { ChangesPanel } from "./changes-panel";
+import { HelpPanel } from "./help-panel";
 import { loadChanges, loadDiff } from "./git";
 import { ThemePanel } from "./theme-panel";
 import { catppuccinThemes, themeOrder, type Theme, type ThemeColors, type ThemeName } from "./theme";
@@ -53,6 +54,7 @@ function App() {
   const [themeName, setThemeName] = createSignal<ThemeName>("mocha");
   const [isThemePanelOpen, setIsThemePanelOpen] = createSignal(false);
   const [themeIndex, setThemeIndex] = createSignal(0);
+  const [isHelpPanelOpen, setIsHelpPanelOpen] = createSignal(false);
   const theme = createMemo(() => catppuccinThemes[themeName()]);
   const colors = createMemo(() => theme().colors);
   const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
@@ -109,16 +111,17 @@ function App() {
     setPanelIndex(0);
     setIsPanelOpen(true);
     setIsThemePanelOpen(false);
+    setIsHelpPanelOpen(false);
   };
 
   const closePanel = () => {
     setIsPanelOpen(false);
   };
-
   const openThemePanel = () => {
     setIsPanelOpen(false);
     setThemeIndex(Math.max(0, themeOrder.indexOf(themeName())));
     setIsThemePanelOpen(true);
+    setIsHelpPanelOpen(false);
   };
 
   const closeThemePanel = () => {
@@ -287,6 +290,18 @@ function App() {
       return;
     }
 
+    const isHelpKey = key.name === "?" || (key.name === "/" && key.shift);
+    if (isHelpPanelOpen()) {
+      if (key.name === "escape" || isHelpKey) {
+        setIsHelpPanelOpen(false);
+      }
+      return;
+    }
+    if (isHelpKey) {
+      setIsHelpPanelOpen(true);
+      return;
+    }
+
     if (key.name === "p") {
       openPanel();
       return;
@@ -441,6 +456,9 @@ function App() {
         </box>
       </box>
 
+      <Show when={isHelpPanelOpen()}>
+        <HelpPanel colors={colors()} themeName={themeName()} />
+      </Show>
       <box
         height={3}
         width="100%"
@@ -452,9 +470,8 @@ function App() {
         alignItems="center"
         backgroundColor={colors().mantle}
       >
-        <text fg={colors().subtext0}>
-          q/esc quit  r refresh  p files  h/l/←/→ file  j/k scroll  t themes ({themeName()})
-        </text>
+        <box flexGrow={1} />
+        <text fg={colors().subtext0}>? help</text>
       </box>
 
       <ChangesPanel
