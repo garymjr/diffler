@@ -1,7 +1,7 @@
 import { getFiletypeFromFileName, parsePatchFiles } from "@pierre/diffs";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { render, useKeyboard, useRenderer } from "@opentui/solid";
-import { createEffect, createMemo, createResource, createSignal, For, Show, onMount } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, Show, onMount } from "solid-js";
 import path from "node:path";
 
 type ChangeStatus = "modified" | "added" | "deleted" | "renamed" | "untracked";
@@ -13,21 +13,12 @@ type ChangeItem = {
   hunks?: number;
 };
 
-type TreeEntry = {
-  kind: "dir" | "file";
-  name: string;
-  path: string;
-  depth: number;
-  status?: ChangeStatus;
-  hunks?: number;
-};
-
 type DiffData = {
   diff: string;
   language?: string;
+  added: number;
+  deleted: number;
 };
-
-type FocusTarget = "sidebar" | "diff";
 
 const decoder = new TextDecoder();
 
@@ -141,89 +132,6 @@ function loadChanges(setError: (value: string | null) => void): ChangeItem[] {
   return Array.from(items.values()).sort((a, b) => a.path.localeCompare(b.path));
 }
 
-type TreeNode = {
-  name: string;
-  path: string;
-  children: Map<string, TreeNode>;
-  file?: ChangeItem;
-};
-
-function buildTreeEntries(items: ChangeItem[]): TreeEntry[] {
-  const root: TreeNode = {
-    name: "",
-    path: "",
-    children: new Map(),
-  };
-
-  for (const item of items) {
-    const parts = item.path.split("/");
-    let current = root;
-    let currentPath = "";
-
-    for (let index = 0; index < parts.length; index += 1) {
-      const part = parts[index];
-      currentPath = currentPath ? `${currentPath}/${part}` : part;
-      let child = current.children.get(part);
-      if (!child) {
-        child = {
-          name: part,
-          path: currentPath,
-          children: new Map(),
-        };
-        current.children.set(part, child);
-      }
-      if (index === parts.length - 1) {
-        child.file = item;
-      }
-      current = child;
-    }
-  }
-
-  const entries: TreeEntry[] = [];
-
-  const walk = (node: TreeNode, depth: number) => {
-    const children = Array.from(node.children.values()).sort((a, b) => {
-      const aIsFile = Boolean(a.file) && a.children.size === 0;
-      const bIsFile = Boolean(b.file) && b.children.size === 0;
-      if (aIsFile !== bIsFile) {
-        return aIsFile ? 1 : -1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    for (const child of children) {
-      const isFile = Boolean(child.file) && child.children.size === 0;
-      entries.push({
-        kind: isFile ? "file" : "dir",
-        name: child.name,
-        path: child.path,
-        depth,
-        status: child.file?.status,
-        hunks: child.file?.hunks,
-      });
-      walk(child, depth + 1);
-    }
-  };
-
-  walk(root, 0);
-  return entries;
-}
-
-function statusBadge(status: ChangeStatus | undefined) {
-  switch (status) {
-    case "added":
-      return "A";
-    case "deleted":
-      return "D";
-    case "renamed":
-      return "R";
-    case "untracked":
-      return "?";
-    default:
-      return "M";
-  }
-}
-
 const languageByExtension: Record<string, string> = {
   ".ts": "typescript",
   ".tsx": "typescript",
@@ -253,6 +161,32 @@ function resolveLanguage(filePath: string) {
   return lang;
 }
 
+function statusLabel(status: ChangeStatus | undefined) {
+  switch (status) {
+    case "added":
+      return "A";
+    case "deleted":
+      return "D";
+    case "untracked":
+      return "??";
+    default:
+      return "M";
+  }
+}
+
+function statusColor(status: ChangeStatus | undefined) {
+  switch (status) {
+    case "added":
+      return colors.green;
+    case "deleted":
+      return colors.red;
+    case "untracked":
+      return colors.yellow;
+    default:
+      return colors.blue;
+  }
+}
+
 function loadDiff(change: ChangeItem): DiffData {
   const diffParts: string[] = [];
 
@@ -268,33 +202,51 @@ function loadDiff(change: ChangeItem): DiffData {
     if (staged.trim().length > 0) diffParts.push(staged);
   }
 
+  const diff = diffParts.join("\n");
+  let added = 0;
+  let deleted = 0;
+
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("+++ ") || line.startsWith("--- ")) continue;
+    if (line.startsWith("+")) {
+      added += 1;
+    } else if (line.startsWith("-")) {
+      deleted += 1;
+    }
+  }
+
   return {
-    diff: diffParts.join("\n"),
+    diff,
     language: resolveLanguage(change.path),
+    added,
+    deleted,
   };
 }
+
+const colors = {
+  base: "#1e1e2e",
+  mantle: "#181825",
+  crust: "#11111b",
+  text: "#cdd6f4",
+  subtext0: "#a6adc8",
+  red: "#f38ba8",
+  green: "#a6e3a1",
+  yellow: "#f9e2af",
+  blue: "#89b4fa",
+};
 
 function App() {
   const renderer = useRenderer();
   const [error, setError] = createSignal<string | null>(null);
   const [changes, setChanges] = createSignal<ChangeItem[]>([]);
   const [selectedPath, setSelectedPath] = createSignal<string | null>(null);
-  const [focus, setFocus] = createSignal<FocusTarget>("sidebar");
-  let sidebarScroll: ScrollBoxRenderable | undefined;
   let diffScroll: ScrollBoxRenderable | undefined;
 
   onMount(() => {
     setChanges(loadChanges(setError));
   });
 
-  const entries = createMemo(() => buildTreeEntries(changes()));
-  const renderEntries = createMemo(() => {
-    const selected = selectedPath();
-    return entries().map((entry) => ({
-      entry,
-      isSelected: entry.kind === "file" && entry.path === selected,
-    }));
-  });
+  const fileEntries = createMemo(() => changes());
   const changeMap = createMemo(() => {
     const map = new Map<string, ChangeItem>();
     for (const change of changes()) {
@@ -303,11 +255,35 @@ function App() {
     return map;
   });
 
-  const fileEntries = createMemo(() => entries().filter((entry) => entry.kind === "file"));
+  const selectedIndex = createMemo(() => {
+    const path = selectedPath();
+    if (!path) return -1;
+    return fileEntries().findIndex((entry) => entry.path === path);
+  });
+  const selectedFileName = createMemo(() => {
+    const current = selectedPath();
+    return current ? path.basename(current) : null;
+  });
+  const selectedChange = createMemo(() => {
+    const current = selectedPath();
+    return current ? changeMap().get(current) ?? null : null;
+  });
+  const hasMultipleFiles = createMemo(() => fileEntries().length > 1);
+  const hasPrevFile = createMemo(() => hasMultipleFiles() && selectedIndex() > 0);
+  const hasNextFile = createMemo(() => {
+    const index = selectedIndex();
+    return hasMultipleFiles() && index >= 0 && index < fileEntries().length - 1;
+  });
 
   createEffect(() => {
-    if (!selectedPath() && fileEntries().length > 0) {
-      setSelectedPath(fileEntries()[0].path);
+    const files = fileEntries();
+    const selected = selectedPath();
+    if (files.length === 0) {
+      if (selected) setSelectedPath(null);
+      return;
+    }
+    if (!selected || !files.some((entry) => entry.path === selected)) {
+      setSelectedPath(files[0].path);
     }
   });
 
@@ -322,29 +298,17 @@ function App() {
       return;
     }
 
-    if (key.name === "1") {
-      setFocus("sidebar");
+    if (key.name === "j") {
+      diffScroll?.scrollBy(1);
       return;
     }
 
-    if (key.name === "2") {
-      setFocus("diff");
+    if (key.name === "k") {
+      diffScroll?.scrollBy(-1);
       return;
     }
 
-    if (focus() === "diff") {
-      if (key.name === "j") {
-        diffScroll?.scrollBy(1);
-      }
-      if (key.name === "k") {
-        diffScroll?.scrollBy(-1);
-      }
-      return;
-    }
-
-    if (key.name !== "up" && key.name !== "down" && key.name !== "j" && key.name !== "k") {
-      return;
-    }
+    if (key.name !== "h" && key.name !== "l" && key.name !== "left" && key.name !== "right") return;
 
     const files = fileEntries();
     if (files.length === 0) {
@@ -355,7 +319,7 @@ function App() {
       0,
       files.findIndex((entry) => entry.path === selectedPath())
     );
-    const isUp = key.name === "up" || key.name === "k";
+    const isUp = key.name === "h" || key.name === "left";
     const nextIndex = isUp
       ? Math.max(0, currentIndex - 1)
       : Math.min(files.length - 1, currentIndex + 1);
@@ -371,102 +335,101 @@ function App() {
   });
 
   return (
-    <box width="100%" height="100%" flexDirection="row">
-      <box width={32} height="100%" border borderRight padding={1} flexDirection="column">
-        <box height={1}>
-          <text>Changes</text>
-        </box>
-        <scrollbox
-          ref={(el) => {
-            sidebarScroll = el;
-          }}
-          height="100%"
-          focused={focus() === "sidebar"}
+    <box width="100%" height="100%" flexDirection="column" backgroundColor={colors.crust}>
+      <box
+        height={3}
+        width="100%"
+        paddingLeft={1}
+        paddingRight={1}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        alignItems="center"
+        backgroundColor={colors.mantle}
+      >
+        <box flexGrow={1} />
+        <Show
+          when={!error()}
+          fallback={<text fg={colors.red}>{error()}</text>}
         >
           <Show
-            when={!error()}
-            fallback={<text fg="#ff6666">{error()}</text>}
+            when={selectedFileName()}
+            fallback={<text fg={colors.subtext0}>No local changes.</text>}
           >
-            <Show
-              when={entries().length > 0}
-              fallback={<text fg="#888888">No local changes.</text>}
-            >
-              <For each={renderEntries()}>
-                {(item) => {
-                  const { entry, isSelected } = item;
-                  const indent = " ".repeat(entry.depth * 2);
-                  const prefix = isSelected ? "▸ " : "  ";
-                  const label = entry.kind === "dir"
-                    ? `${indent}[${entry.name}]`
-                    : `${indent}${statusBadge(entry.status)} ${entry.name}`;
-
-                  return (
-                    <box
-                      width="100%"
-                      height={1}
-                      backgroundColor={isSelected ? "#2f323a" : "transparent"}
-                      onMouseDown={() => {
-                        if (entry.kind === "file") {
-                          setSelectedPath(entry.path);
-                        }
-                        setFocus("sidebar");
-                      }}
-                    >
-                      <text fg={entry.kind === "dir" ? "#888888" : isSelected ? "#ffffff" : "#d0d0d0"}>
-                        {prefix}{label}
-                        <Show when={entry.kind === "file" && entry.hunks !== undefined}>
-                          <span fg="#666666"> ({entry.hunks})</span>
-                        </Show>
-                      </text>
+            {(value) => (
+              <box flexDirection="row" alignItems="center" gap={1}>
+                <Show when={hasPrevFile()}>
+                  <text fg={colors.subtext0}>←</text>
+                </Show>
+                <Show when={selectedChange()}>
+                  {(change) => (
+                    <text fg={statusColor(change().status)}>
+                      {statusLabel(change().status)}
+                    </text>
+                  )}
+                </Show>
+                <text fg={colors.text}>{value()}</text>
+                <Show when={diffData()}>
+                  {(data) => (
+                    <box flexDirection="row" gap={1}>
+                      <text fg={colors.green}>+{data().added}</text>
+                      <text fg={colors.red}>-{data().deleted}</text>
+                      <text fg={colors.blue}>~{selectedChange()?.hunks ?? 0}</text>
                     </box>
-                  );
-                }}
-              </For>
-            </Show>
+                  )}
+                </Show>
+                <Show when={hasNextFile()}>
+                  <text fg={colors.subtext0}>→</text>
+                </Show>
+              </box>
+            )}
           </Show>
-        </scrollbox>
+        </Show>
+        <box flexGrow={1} />
       </box>
 
-      <box
-        flexGrow={1}
-        height="100%"
-        border
-        padding={1}
-        flexDirection="column"
-        onMouseDown={() => setFocus("diff")}
-      >
-        <box height={1}>
-          <text fg="#d0d0d0">
-            <Show when={selectedPath()} fallback="Select a file to view diff.">
-              {(value) => value()}
-            </Show>
-          </text>
-        </box>
+      <box flexGrow={1} height="100%" padding={1} flexDirection="column" backgroundColor={colors.base}>
         <box flexGrow={1} height="100%">
           <scrollbox
             ref={(el) => {
               diffScroll = el;
             }}
             height="100%"
-            focused={focus() === "diff"}
+            focused
           >
-            <Show when={diffData()} fallback={<text fg="#888888">Loading diff…</text>}>
-              {(data) => (
-                <Show
-                  when={data().diff.trim().length > 0}
-                  fallback={<text fg="#888888">No diff for this file.</text>}
-                >
-                  <diff
-                    diff={data().diff}
-                    view="unified"
-                    filetype={data().language}
-                    showLineNumbers
-                  />
-                </Show>
-              )}
+            <Show when={selectedPath()} fallback={<text fg="#888888">No local changes.</text>}>
+              <Show when={diffData()} fallback={<text fg="#888888">Loading diff…</text>}>
+                {(data) => (
+                  <Show
+                    when={data().diff.trim().length > 0}
+                    fallback={<text fg="#888888">No diff for this file.</text>}
+                  >
+                    <diff
+                      diff={data().diff}
+                      view="unified"
+                      filetype={data().language}
+                      showLineNumbers
+                    />
+                  </Show>
+                )}
+              </Show>
             </Show>
           </scrollbox>
         </box>
+      </box>
+
+      <box
+        height={3}
+        width="100%"
+        paddingLeft={1}
+        paddingRight={1}
+        paddingTop={1}
+        paddingBottom={1}
+        flexDirection="row"
+        alignItems="center"
+        backgroundColor={colors.mantle}
+      >
+        <text fg={colors.subtext0}>q/esc quit  r refresh  h/l/←/→ file  j/k scroll</text>
       </box>
     </box>
   );
