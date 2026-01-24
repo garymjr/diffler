@@ -1,22 +1,14 @@
 import { For, Show } from "solid-js";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import type { ChangeItem, ChangeStatus } from "./types";
-
-type PanelColors = {
-  base: string;
-  mantle: string;
-  crust: string;
-  text: string;
-  subtext0: string;
-  blue: string;
-};
+import type { ThemeColors } from "./theme";
 
 type ChangesPanelProps = {
   isOpen: boolean;
   query: string;
   entries: ChangeItem[];
   selectedIndex: number;
-  colors: PanelColors;
+  colors: ThemeColors;
   statusLabel: (status: ChangeStatus | undefined) => string;
   statusColor: (status: ChangeStatus | undefined) => string;
   onQueryChange: (value: string) => void;

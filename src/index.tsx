@@ -1,144 +1,12 @@
-import { parsePatchFiles } from "@pierre/diffs";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { render, useKeyboard, useRenderer } from "@opentui/solid";
-import { createEffect, createMemo, createResource, createSignal, Show, onMount } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onMount, Show } from "solid-js";
 import path from "node:path";
 import { ChangesPanel } from "./changes-panel";
-import { resolveLanguage } from "./language";
-import { catppuccinMochaSyntax } from "./syntax-theme";
-import type { ChangeItem, ChangeStatus, DiffData } from "./types";
-
-const decoder = new TextDecoder();
-
-function runGit(args: string[]) {
-  const result = Bun.spawnSync(["git", ...args], {
-    cwd: process.cwd(),
-  });
-  return {
-    stdout: decoder.decode(result.stdout),
-    stderr: decoder.decode(result.stderr),
-    exitCode: result.exitCode,
-  };
-}
-
-function statusFromXY(x: string, y: string) {
-  if (x === "!" || y === "!") return { status: null, needsExtraPath: false };
-  if (x === "?" || y === "?") return { status: "untracked" as const, needsExtraPath: false };
-  if (x === "U" || y === "U") return { status: "conflict" as const, needsExtraPath: false };
-  if (x === "D" || y === "D") return { status: "deleted" as const, needsExtraPath: false };
-  if (x === "A" || y === "A") return { status: "added" as const, needsExtraPath: false };
-  if (x === "R" || y === "R") return { status: "renamed" as const, needsExtraPath: true };
-  if (x === "C" || y === "C") return { status: "copied" as const, needsExtraPath: true };
-  return { status: "modified" as const, needsExtraPath: false };
-}
-
-function parseStatus(output: string) {
-  const map = new Map<string, Pick<ChangeItem, "status" | "oldPath">>();
-  if (!output) return map;
-  const entries = output.split("\0").filter(Boolean);
-
-  for (let index = 0; index < entries.length; index += 1) {
-    const entry = entries[index];
-    if (entry.length < 3) continue;
-    const code = entry.slice(0, 2);
-    const path = entry.slice(3);
-    const { status, needsExtraPath } = statusFromXY(code[0], code[1]);
-    if (!status) continue;
-
-    if (needsExtraPath) {
-      const oldPath = entries[index + 1];
-      if (oldPath) {
-        map.set(path, { status, oldPath });
-        index += 1;
-        continue;
-      }
-    }
-
-    map.set(path, { status });
-  }
-
-  return map;
-}
-
-function mapChangeType(type: string | undefined): ChangeStatus {
-  switch (type) {
-    case "new":
-      return "added";
-    case "deleted":
-      return "deleted";
-    case "rename-pure":
-    case "rename-changed":
-      return "renamed";
-    case "copy-pure":
-    case "copy-changed":
-      return "copied";
-    default:
-      return "modified";
-  }
-}
-
-function loadChanges(setError: (value: string | null) => void): ChangeItem[] {
-  const repoCheck = runGit(["rev-parse", "--is-inside-work-tree"]);
-  if (repoCheck.exitCode !== 0 || repoCheck.stdout.trim() !== "true") {
-    setError("Not inside a git repository.");
-    return [];
-  }
-
-  const workingDiff = runGit(["diff", "--patch", "--no-color"]).stdout;
-  const stagedDiff = runGit(["diff", "--cached", "--patch", "--no-color"]).stdout;
-  const statusMap = parseStatus(
-    runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"]).stdout
-  );
-
-  const items = new Map<string, ChangeItem>();
-  const diffs = [workingDiff, stagedDiff].filter((diff) => diff.trim().length > 0);
-
-  for (const diffText of diffs) {
-    let patches = [] as ReturnType<typeof parsePatchFiles>;
-    try {
-      patches = parsePatchFiles(diffText);
-    } catch {
-      continue;
-    }
-
-    for (const patch of patches) {
-      for (const file of patch.files) {
-        const status = mapChangeType(file.type);
-        const existing = items.get(file.name);
-        if (!existing) {
-          items.set(file.name, {
-            path: file.name,
-            status,
-            oldPath: file.prevName ?? undefined,
-            hunks: file.hunks.length,
-          });
-        }
-      }
-    }
-  }
-
-  for (const [filePath, statusInfo] of statusMap.entries()) {
-    const existing = items.get(filePath);
-    if (existing) {
-      if (statusInfo.oldPath) {
-        existing.oldPath = statusInfo.oldPath;
-      }
-      if (statusInfo.status === "untracked") {
-        existing.status = "untracked";
-      }
-      continue;
-    }
-
-    items.set(filePath, {
-      path: filePath,
-      status: statusInfo.status,
-      oldPath: statusInfo.oldPath,
-    });
-  }
-
-  setError(null);
-  return Array.from(items.values()).sort((a, b) => a.path.localeCompare(b.path));
-}
+import { loadChanges, loadDiff } from "./git";
+import { ThemePanel } from "./theme-panel";
+import { catppuccinThemes, themeOrder, type Theme, type ThemeColors, type ThemeName } from "./theme";
+import type { ChangeItem, ChangeStatus } from "./types";
 
 function statusLabel(status: ChangeStatus | undefined) {
   switch (status) {
@@ -157,7 +25,7 @@ function statusLabel(status: ChangeStatus | undefined) {
   }
 }
 
-function statusColor(status: ChangeStatus | undefined) {
+function statusColor(status: ChangeStatus | undefined, colors: ThemeColors) {
   switch (status) {
     case "added":
       return colors.green;
@@ -174,54 +42,6 @@ function statusColor(status: ChangeStatus | undefined) {
   }
 }
 
-function loadDiff(change: ChangeItem): DiffData {
-  const diffParts: string[] = [];
-
-  if (change.status === "untracked") {
-    const noIndex = runGit(["diff", "--no-index", "--patch", "--no-color", "--", "/dev/null", change.path]).stdout;
-    if (noIndex.trim().length > 0) {
-      diffParts.push(noIndex);
-    }
-  } else {
-    const unstaged = runGit(["diff", "--patch", "--no-color", "--", change.path]).stdout;
-    const staged = runGit(["diff", "--cached", "--patch", "--no-color", "--", change.path]).stdout;
-    if (unstaged.trim().length > 0) diffParts.push(unstaged);
-    if (staged.trim().length > 0) diffParts.push(staged);
-  }
-
-  const diff = diffParts.join("\n");
-  let added = 0;
-  let deleted = 0;
-
-  for (const line of diff.split("\n")) {
-    if (line.startsWith("+++ ") || line.startsWith("--- ")) continue;
-    if (line.startsWith("+")) {
-      added += 1;
-    } else if (line.startsWith("-")) {
-      deleted += 1;
-    }
-  }
-
-  return {
-    diff,
-    language: resolveLanguage(change.path),
-    added,
-    deleted,
-  };
-}
-
-const colors = {
-  base: "#1e1e2e",
-  mantle: "#181825",
-  crust: "#11111b",
-  text: "#cdd6f4",
-  subtext0: "#a6adc8",
-  red: "#f38ba8",
-  green: "#a6e3a1",
-  yellow: "#f9e2af",
-  blue: "#89b4fa",
-};
-
 function App() {
   const renderer = useRenderer();
   const [error, setError] = createSignal<string | null>(null);
@@ -230,6 +50,12 @@ function App() {
   const [isPanelOpen, setIsPanelOpen] = createSignal(false);
   const [panelQuery, setPanelQuery] = createSignal("");
   const [panelIndex, setPanelIndex] = createSignal(0);
+  const [themeName, setThemeName] = createSignal<ThemeName>("mocha");
+  const [isThemePanelOpen, setIsThemePanelOpen] = createSignal(false);
+  const [themeIndex, setThemeIndex] = createSignal(0);
+  const theme = createMemo(() => catppuccinThemes[themeName()]);
+  const colors = createMemo(() => theme().colors);
+  const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
   let diffScroll: ScrollBoxRenderable | undefined;
   let panelScroll: ScrollBoxRenderable | undefined;
   let lastPanelIndex = 0;
@@ -253,9 +79,9 @@ function App() {
   });
 
   const selectedIndex = createMemo(() => {
-    const path = selectedPath();
-    if (!path) return -1;
-    return fileEntries().findIndex((entry) => entry.path === path);
+    const pathValue = selectedPath();
+    if (!pathValue) return -1;
+    return fileEntries().findIndex((entry) => entry.path === pathValue);
   });
   const selectedFileName = createMemo(() => {
     const current = selectedPath();
@@ -282,10 +108,21 @@ function App() {
     setPanelQuery("");
     setPanelIndex(0);
     setIsPanelOpen(true);
+    setIsThemePanelOpen(false);
   };
 
   const closePanel = () => {
     setIsPanelOpen(false);
+  };
+
+  const openThemePanel = () => {
+    setIsPanelOpen(false);
+    setThemeIndex(Math.max(0, themeOrder.indexOf(themeName())));
+    setIsThemePanelOpen(true);
+  };
+
+  const closeThemePanel = () => {
+    setIsThemePanelOpen(false);
   };
 
   const movePanelSelection = (delta: number) => {
@@ -296,6 +133,16 @@ function App() {
     }
     const nextIndex = Math.max(0, Math.min(entries.length - 1, panelIndex() + delta));
     setPanelIndex(nextIndex);
+  };
+
+  const moveThemeSelection = (delta: number) => {
+    const entries = themeEntries();
+    if (entries.length === 0) {
+      setThemeIndex(-1);
+      return;
+    }
+    const nextIndex = Math.max(0, Math.min(entries.length - 1, themeIndex() + delta));
+    setThemeIndex(nextIndex);
   };
 
   createEffect(() => {
@@ -311,6 +158,22 @@ function App() {
     }
     if (panelIndex() >= entries.length) {
       setPanelIndex(entries.length - 1);
+    }
+  });
+
+  createEffect(() => {
+    if (!isThemePanelOpen()) return;
+    const entries = themeEntries();
+    if (entries.length === 0) {
+      if (themeIndex() !== -1) setThemeIndex(-1);
+      return;
+    }
+    if (themeIndex() < 0) {
+      setThemeIndex(0);
+      return;
+    }
+    if (themeIndex() >= entries.length) {
+      setThemeIndex(entries.length - 1);
     }
   });
 
@@ -338,6 +201,39 @@ function App() {
   });
 
   useKeyboard((key) => {
+    if (isThemePanelOpen()) {
+      if (key.name === "escape" || key.name === "t") {
+        closeThemePanel();
+        return;
+      }
+      if (key.name === "enter" || key.name === "return") {
+        const entries = themeEntries();
+        const selected = entries[themeIndex()];
+        if (selected) {
+          setThemeName(selected.name);
+        }
+        closeThemePanel();
+        return;
+      }
+      if (key.name === "k") {
+        moveThemeSelection(-1);
+        return;
+      }
+      if (key.name === "j") {
+        moveThemeSelection(1);
+        return;
+      }
+      if (key.name === "up" || key.sequence === "\u001b[A") {
+        moveThemeSelection(-1);
+        return;
+      }
+      if (key.name === "down" || key.sequence === "\u001b[B") {
+        moveThemeSelection(1);
+        return;
+      }
+      return;
+    }
+
     if (isPanelOpen()) {
       if (key.name === "escape") {
         closePanel();
@@ -396,6 +292,11 @@ function App() {
       return;
     }
 
+    if (key.name === "t") {
+      openThemePanel();
+      return;
+    }
+
     if (key.name === "q" || key.name === "escape") {
       renderer.destroy();
       return;
@@ -435,15 +336,15 @@ function App() {
     setSelectedPath(files[nextIndex].path);
   });
 
-  const [diffData] = createResource(selectedPath, async (path) => {
-    if (!path) return null;
-    const change = changeMap().get(path);
+  const [diffData] = createResource(selectedPath, async (pathValue) => {
+    if (!pathValue) return null;
+    const change = changeMap().get(pathValue);
     if (!change) return null;
     return loadDiff(change);
   });
 
   return (
-    <box width="100%" height="100%" flexDirection="column" backgroundColor={colors.crust}>
+    <box width="100%" height="100%" flexDirection="column" backgroundColor={colors().crust}>
       <box
         height={3}
         width="100%"
@@ -453,41 +354,41 @@ function App() {
         paddingBottom={1}
         flexDirection="row"
         alignItems="center"
-        backgroundColor={colors.mantle}
+        backgroundColor={colors().mantle}
       >
         <box flexGrow={1} />
         <Show
           when={!error()}
-          fallback={<text fg={colors.red}>{error()}</text>}
+          fallback={<text fg={colors().red}>{error()}</text>}
         >
           <Show
             when={selectedFileName()}
-            fallback={<text fg={colors.subtext0}>No local changes.</text>}
+            fallback={<text fg={colors().subtext0}>No local changes.</text>}
           >
             {(value) => (
               <box flexDirection="row" alignItems="center" gap={1}>
                 <Show when={hasPrevFile()}>
-                  <text fg={colors.subtext0}>←</text>
+                  <text fg={colors().subtext0}>←</text>
                 </Show>
                 <Show when={selectedChange()}>
                   {(change) => (
-                    <text fg={statusColor(change().status)}>
+                    <text fg={statusColor(change().status, colors())}>
                       {statusLabel(change().status)}
                     </text>
                   )}
                 </Show>
-                <text fg={colors.text}>{value()}</text>
+                <text fg={colors().text}>{value()}</text>
                 <Show when={diffData()}>
                   {(data) => (
                     <box flexDirection="row" gap={1}>
-                      <text fg={colors.green}>+{data().added}</text>
-                      <text fg={colors.red}>-{data().deleted}</text>
-                      <text fg={colors.blue}>~{selectedChange()?.hunks ?? 0}</text>
+                      <text fg={colors().green}>+{data().added}</text>
+                      <text fg={colors().red}>-{data().deleted}</text>
+                      <text fg={colors().blue}>~{selectedChange()?.hunks ?? 0}</text>
                     </box>
                   )}
                 </Show>
                 <Show when={hasNextFile()}>
-                  <text fg={colors.subtext0}>→</text>
+                  <text fg={colors().subtext0}>→</text>
                 </Show>
               </box>
             )}
@@ -496,7 +397,7 @@ function App() {
         <box flexGrow={1} />
       </box>
 
-      <box flexGrow={1} height="100%" padding={1} flexDirection="column" backgroundColor={colors.base}>
+      <box flexGrow={1} height="100%" padding={1} flexDirection="column" backgroundColor={colors().base}>
         <box flexGrow={1} height="100%">
           <scrollbox
             ref={(el) => {
@@ -505,18 +406,31 @@ function App() {
             height="100%"
             focused={!isPanelOpen()}
           >
-            <Show when={selectedPath()} fallback={<text fg="#888888">No local changes.</text>}>
-              <Show when={diffData()} fallback={<text fg="#888888">Loading diff…</text>}>
+            <Show
+              when={selectedPath()}
+              fallback={<text fg={colors().subtext0}>No local changes.</text>}
+            >
+              <Show
+                when={diffData()}
+                fallback={<text fg={colors().subtext0}>Loading diff…</text>}
+              >
                 {(data) => (
                   <Show
                     when={data().diff.trim().length > 0}
-                    fallback={<text fg="#888888">No diff for this file.</text>}
+                    fallback={<text fg={colors().subtext0}>No diff for this file.</text>}
                   >
                     <diff
                       diff={data().diff}
                       view="unified"
                       filetype={data().language}
-                      syntaxStyle={catppuccinMochaSyntax}
+                      syntaxStyle={theme().syntaxStyle}
+                      addedBg={theme().diff.addedBg}
+                      removedBg={theme().diff.removedBg}
+                      contextBg={theme().diff.contextBg}
+                      addedSignColor={theme().diff.addedSignColor}
+                      removedSignColor={theme().diff.removedSignColor}
+                      addedLineNumberBg={theme().diff.addedLineNumberBg}
+                      removedLineNumberBg={theme().diff.removedLineNumberBg}
                       showLineNumbers
                     />
                   </Show>
@@ -536,9 +450,11 @@ function App() {
         paddingBottom={1}
         flexDirection="row"
         alignItems="center"
-        backgroundColor={colors.mantle}
+        backgroundColor={colors().mantle}
       >
-        <text fg={colors.subtext0}>q/esc quit  r refresh  p files  h/l/←/→ file  j/k scroll</text>
+        <text fg={colors().subtext0}>
+          q/esc quit  r refresh  p files  h/l/←/→ file  j/k scroll  t themes ({themeName()})
+        </text>
       </box>
 
       <ChangesPanel
@@ -546,13 +462,19 @@ function App() {
         query={panelQuery()}
         entries={filteredEntries()}
         selectedIndex={panelIndex()}
-        colors={colors}
+        colors={colors()}
         statusLabel={statusLabel}
-        statusColor={statusColor}
+        statusColor={(status) => statusColor(status, colors())}
         onQueryChange={setPanelQuery}
         onScrollRef={(el) => {
           panelScroll = el;
         }}
+      />
+      <ThemePanel
+        isOpen={isThemePanelOpen()}
+        themes={themeEntries()}
+        selectedIndex={themeIndex()}
+        colors={colors()}
       />
     </box>
   );
