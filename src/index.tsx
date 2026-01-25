@@ -11,7 +11,14 @@ import { ThemePanel } from "./theme-panel";
 import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./theme";
 import type { ChangeItem } from "./types";
 import { copyToClipboard } from "./clipboard";
-import { buildDiffLines, formatCommentEntries, type CommentEntry, type SelectionInfo } from "./comments";
+import {
+  buildDiffLines,
+  extractLineRanges,
+  formatCommentEntries,
+  formatLineRanges,
+  type CommentEntry,
+  type SelectionInfo,
+} from "./comments";
 import { statusColor, statusLabel } from "./status";
 import { useAppKeyboard } from "./use-app-keyboard";
 import { useDiffSelection } from "./use-diff-selection";
@@ -43,6 +50,9 @@ function App() {
   const [refreshTick, setRefreshTick] = createSignal(0);
   const [diffCursorLine, setDiffCursorLine] = createSignal(0);
   const [isDiffCursorActive, setIsDiffCursorActive] = createSignal(true);
+  const [isDiffMultiSelect, setIsDiffMultiSelect] = createSignal(false);
+  const [diffSelectionAnchor, setDiffSelectionAnchor] = createSignal(0);
+  const [diffSelectionFocus, setDiffSelectionFocus] = createSignal(0);
   const theme = createMemo(() => catppuccinThemes[themeName()]);
   const colors = createMemo(() => theme().colors);
   const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
@@ -359,6 +369,51 @@ function App() {
       (codeRenderable as any).requestRender?.();
     }
   };
+  const updateDiffMultiSelection = (startLine: number, endLine: number) => {
+    const codeRenderable = getDiffCodeRenderable();
+    if (!codeRenderable) return;
+    const view = (codeRenderable as any).textBufferView;
+    if (!view?.setLocalSelection) return;
+    const lineInfo = codeRenderable.lineInfo;
+    const lineStarts = lineInfo?.lineStarts ?? [];
+    if (lineStarts.length === 0) return;
+    const anchor = Math.max(0, Math.min(lineStarts.length - 1, startLine));
+    const focus = Math.max(0, Math.min(lineStarts.length - 1, endLine));
+    const minLine = Math.min(anchor, focus);
+    const maxLine = Math.max(anchor, focus);
+    const width = Math.max(1, codeRenderable.width);
+    view.setLocalSelection(
+      0,
+      minLine,
+      Math.max(0, width - 1),
+      maxLine,
+      (codeRenderable as any).selectionBg,
+      (codeRenderable as any).selectionFg
+    );
+    const plainText = codeRenderable.plainText ?? "";
+    const filePath = selectedPath();
+    const lines = diffLines();
+    if (plainText && filePath && lines.length > 0) {
+      const maxSelectable = Math.min(lineStarts.length, lines.length) - 1;
+      const safeMin = Math.max(0, Math.min(maxSelectable, minLine));
+      const safeMax = Math.max(0, Math.min(maxSelectable, maxLine));
+      const startOffset = lineStarts[safeMin] ?? 0;
+      const nextOffset = lineStarts[safeMax + 1] ?? plainText.length;
+      const endOffset = Math.max(startOffset, nextOffset - 1);
+      const { oldRange, newRange } = extractLineRanges(lines, safeMin, safeMax);
+      const lineLabel = formatLineRanges(oldRange, newRange);
+      setSelectionInfo({
+        filePath,
+        text: plainText.slice(startOffset, endOffset + 1),
+        startLine: safeMin,
+        endLine: safeMax,
+        oldRange,
+        newRange,
+        lineLabel,
+      });
+    }
+    (codeRenderable as any).requestRender?.();
+  };
   const ensureDiffCursorVisible = (lineIndex: number) => {
     if (!diffScroll) return;
     const viewportHeight = (diffScroll as any).viewport?.height;
@@ -387,9 +442,54 @@ function App() {
     const current = diffCursorLine();
     const next = Math.max(0, Math.min(totalLines - 1, (current < 0 ? 0 : current) + delta));
     setDiffCursorLine(next);
+    if (isDiffMultiSelect()) {
+      setDiffSelectionFocus(next);
+      queueMicrotask(() => {
+        updateDiffMultiSelection(diffSelectionAnchor(), next);
+        ensureDiffCursorVisible(next);
+        renderer.requestRender();
+      });
+      return;
+    }
     queueMicrotask(() => {
       updateDiffCursorHighlight(next);
       ensureDiffCursorVisible(next);
+      renderer.requestRender();
+    });
+  };
+  const toggleDiffMultiSelect = () => {
+    const totalLines = getDiffLineCount();
+    if (totalLines === 0) return;
+    const nextState = !isDiffMultiSelect();
+    setIsDiffMultiSelect(nextState);
+    setIsDiffCursorActive(true);
+    if (nextState) {
+      const start = Math.max(0, Math.min(totalLines - 1, diffCursorLine()));
+      setDiffSelectionAnchor(start);
+      setDiffSelectionFocus(start);
+      queueMicrotask(() => {
+        updateDiffMultiSelection(start, start);
+        ensureDiffCursorVisible(start);
+        renderer.requestRender();
+      });
+    } else {
+      const focus = diffSelectionFocus();
+      setDiffCursorLine(focus);
+      queueMicrotask(() => {
+        updateDiffCursorHighlight(focus);
+        ensureDiffCursorVisible(focus);
+        renderer.requestRender();
+      });
+    }
+  };
+  const exitDiffMultiSelect = () => {
+    if (!isDiffMultiSelect()) return;
+    setIsDiffMultiSelect(false);
+    const focus = diffSelectionFocus();
+    setDiffCursorLine(focus);
+    queueMicrotask(() => {
+      updateDiffCursorHighlight(focus);
+      ensureDiffCursorVisible(focus);
       renderer.requestRender();
     });
   };
@@ -407,7 +507,11 @@ function App() {
       const totalLines = getDiffLineCount();
       if (totalLines === 0) return;
       if (diffCursorLine() < 0) setDiffCursorLine(0);
-      updateDiffCursorHighlight(diffCursorLine());
+      if (isDiffMultiSelect()) {
+        updateDiffMultiSelection(diffSelectionAnchor(), diffSelectionFocus());
+      } else {
+        updateDiffCursorHighlight(diffCursorLine());
+      }
       ensureDiffCursorVisible(diffCursorLine());
       renderer.requestRender();
     };
@@ -416,6 +520,7 @@ function App() {
   createEffect(() => {
     selectedPath();
     diffData();
+    setIsDiffMultiSelect(false);
     const totalLines = getDiffLineCount();
     if (totalLines === 0) {
       setDiffCursorLine(-1);
@@ -432,7 +537,11 @@ function App() {
     if (line < 0) return;
     diffData();
     queueMicrotask(() => {
-      updateDiffCursorHighlight(line);
+      if (isDiffMultiSelect()) {
+        updateDiffMultiSelection(diffSelectionAnchor(), diffSelectionFocus());
+      } else {
+        updateDiffCursorHighlight(line);
+      }
       ensureDiffCursorVisible(line);
       renderer.requestRender();
     });
@@ -487,6 +596,8 @@ function App() {
     copyAllComments,
     refreshChanges,
     moveDiffCursor,
+    toggleDiffMultiSelect,
+    exitDiffMultiSelect,
     fileEntries,
     selectedPath,
   });

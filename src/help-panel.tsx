@@ -10,6 +10,7 @@ export function HelpPanel(props: HelpPanelProps) {
     "? help | q/esc quit | r refresh",
     `p files | t themes (${props.themeName})`,
     "h/l/left/right file | j/k/up/down move line",
+    "v multi-select (j/k expand)",
     "mouse drag select | c comment selection",
     "y copy comments (file)",
   ];

@@ -30,6 +30,8 @@ type AppKeyboardOptions = {
   copyAllComments: () => void;
   refreshChanges: () => void;
   moveDiffCursor: (delta: number) => void;
+  toggleDiffMultiSelect: () => void;
+  exitDiffMultiSelect: () => void;
   fileEntries: Accessor<ChangeItem[]>;
   selectedPath: Accessor<string | null>;
 };
@@ -164,13 +166,27 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       return;
     }
 
-    if (key.name === "q" || key.name === "escape") {
+    if (key.name === "escape") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.exitDiffMultiSelect();
+      return;
+    }
+
+    if (key.name === "q") {
       options.renderer.destroy();
       return;
     }
 
     if (key.name === "r") {
       options.refreshChanges();
+      return;
+    }
+
+    if (key.name === "v") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.toggleDiffMultiSelect();
       return;
     }
 
