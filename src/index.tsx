@@ -38,6 +38,7 @@ function App() {
   const [commentSelection, setCommentSelection] = createSignal<SelectionInfo | null>(null);
   const [comments, setComments] = createSignal<CommentEntry[]>([]);
   const [statusMessage, setStatusMessage] = createSignal<string | null>(null);
+  const [toastMessage, setToastMessage] = createSignal<string | null>(null);
   const [ignoreNextCommentInput, setIgnoreNextCommentInput] = createSignal(false);
   const [refreshTick, setRefreshTick] = createSignal(0);
   const theme = createMemo(() => catppuccinThemes[themeName()]);
@@ -48,6 +49,7 @@ function App() {
   let diffRenderable: DiffRenderable | undefined;
   let lastPanelIndex = 0;
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   const fileEntries = createMemo(() => changes());
   const filteredEntries = createMemo(() => {
@@ -115,6 +117,13 @@ function App() {
       setStatusMessage(null);
     }, 2200);
   };
+  const setToast = (message: string) => {
+    setToastMessage(message);
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      setToastMessage(null);
+    }, 2200);
+  };
   const openCommentPanel = () => {
     const selection = selectionInfo();
     if (!selection) {
@@ -168,7 +177,7 @@ function App() {
     setIgnoreNextCommentInput(false);
     setIsCommentPanelOpen(false);
     setIsCommentFocused(false);
-    setStatus("Saved comment.");
+    setToast("Saved comment.");
   };
 
   const handleCommentChange = (value: string) => {
@@ -199,7 +208,7 @@ function App() {
     }
     const result = copyToClipboard(formatCommentEntries(fileComments));
     if (result.ok) {
-      setStatus("Copied file comments.");
+      setToast("Copied file comments.");
     } else {
       setStatus(`Copy failed: ${result.error ?? "unknown error"}`);
     }
@@ -490,6 +499,26 @@ function App() {
 
       <Show when={isHelpPanelOpen()}>
         <HelpPanel colors={colors()} themeName={themeName()} />
+      </Show>
+      <Show when={toastMessage()}>
+        {(message) => (
+          <box
+            position="absolute"
+            right={1}
+            top={1}
+            paddingLeft={2}
+            paddingRight={2}
+            paddingTop={1}
+            paddingBottom={1}
+            border
+            borderStyle="single"
+            borderColor={colors().surface2}
+            backgroundColor={colors().mantle}
+            zIndex={5}
+          >
+            <text fg={colors().text}>{message()}</text>
+          </box>
+        )}
       </Show>
       <box
         height={3}
