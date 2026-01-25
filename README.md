@@ -29,6 +29,12 @@ Staged-only mode:
 bun dev -- --staged
 ```
 
+Watch mode (auto-refresh on repo changes):
+
+```bash
+bun dev -- --watch
+```
+
 ## Controls
 
 Global:

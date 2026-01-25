@@ -164,6 +164,13 @@ export function loadChanges(
   return Array.from(items.values()).sort((a, b) => a.path.localeCompare(b.path));
 }
 
+export function getRepoRoot(): string | null {
+  const repoCheck = runGit(["rev-parse", "--show-toplevel"]);
+  if (repoCheck.exitCode !== 0) return null;
+  const root = repoCheck.stdout.trim();
+  return root.length > 0 ? root : null;
+}
+
 export function loadDiff(change: ChangeItem, options: LoadOptions = {}): DiffData {
   const stagedOnly = options.stagedOnly ?? false;
   const diffParts: string[] = [];

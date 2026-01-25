@@ -1,11 +1,12 @@
 import type { DiffRenderable, ScrollBoxRenderable } from "@opentui/core";
 import { render, useRenderer } from "@opentui/solid";
-import { createEffect, createMemo, createResource, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
 import path from "node:path";
+import { watch } from "node:fs";
 import { ChangesPanel } from "./changes-panel";
 import { CommentPanel } from "./comment-panel";
 import { HelpPanel } from "./help-panel";
-import { loadChanges, loadDiff } from "./git";
+import { getRepoRoot, loadChanges, loadDiff } from "./git";
 import { ThemePanel } from "./theme-panel";
 import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./theme";
 import type { ChangeItem } from "./types";
@@ -16,6 +17,7 @@ import { useAppKeyboard } from "./use-app-keyboard";
 import { useDiffSelection } from "./use-diff-selection";
 
 const stagedOnly = process.argv.includes("--staged");
+const watchEnabled = process.argv.includes("--watch");
 
 function App() {
   const renderer = useRenderer();
@@ -37,6 +39,7 @@ function App() {
   const [comments, setComments] = createSignal<CommentEntry[]>([]);
   const [statusMessage, setStatusMessage] = createSignal<string | null>(null);
   const [ignoreNextCommentInput, setIgnoreNextCommentInput] = createSignal(false);
+  const [refreshTick, setRefreshTick] = createSignal(0);
   const theme = createMemo(() => catppuccinThemes[themeName()]);
   const colors = createMemo(() => theme().colors);
   const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
@@ -45,10 +48,6 @@ function App() {
   let diffRenderable: DiffRenderable | undefined;
   let lastPanelIndex = 0;
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
-
-  onMount(() => {
-    setChanges(loadChanges(setError, { stagedOnly }));
-  });
 
   const fileEntries = createMemo(() => changes());
   const filteredEntries = createMemo(() => {
@@ -296,12 +295,19 @@ function App() {
     setIsCommentPanelOpen(false);
   });
 
-  const [diffData] = createResource(selectedPath, async (pathValue) => {
-    if (!pathValue) return null;
-    const change = changeMap().get(pathValue);
-    if (!change) return null;
-    return loadDiff(change, { stagedOnly });
-  });
+  const [diffData] = createResource(
+    () => {
+      const pathValue = selectedPath();
+      if (!pathValue) return null;
+      return { pathValue, tick: refreshTick() };
+    },
+    async (value) => {
+      if (!value) return null;
+      const change = changeMap().get(value.pathValue);
+      if (!change) return null;
+      return loadDiff(change, { stagedOnly });
+    }
+  );
 
   const diffLines = createMemo(() => buildDiffLines(diffData()?.diff ?? ""));
   const fileCommentCount = createMemo(() => {
@@ -312,7 +318,27 @@ function App() {
 
   const refreshChanges = () => {
     setChanges(loadChanges(setError, { stagedOnly }));
+    setRefreshTick((value) => value + 1);
   };
+
+  onMount(() => {
+    refreshChanges();
+    if (!watchEnabled) return;
+    const repoRoot = getRepoRoot();
+    if (!repoRoot) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const watcher = watch(
+      repoRoot,
+      { recursive: true },
+      (_eventType, filename) => {
+        if (!filename) return;
+        if (filename === ".git" || filename.startsWith(".git/")) return;
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => refreshChanges(), 120);
+      }
+    );
+    onCleanup(() => watcher.close());
+  });
 
   useAppKeyboard({
     renderer,

@@ -6,6 +6,20 @@ type HelpPanelProps = {
 };
 
 export function HelpPanel(props: HelpPanelProps) {
+  const globalLines = [
+    "? help | q/esc quit | r refresh",
+    `p files | t themes (${props.themeName})`,
+    "h/l/left/right file | j/k scroll",
+    "mouse drag select | c comment selection",
+    "y copy comments (file)",
+  ];
+
+  const panelLines = [
+    "enter select | esc close",
+    "j/k/up/down move",
+    "type to filter | backspace delete",
+  ];
+
   return (
     <box
       width="100%"
@@ -14,60 +28,34 @@ export function HelpPanel(props: HelpPanelProps) {
       paddingTop={1}
       paddingBottom={1}
       flexDirection="row"
-      gap={6}
+      gap={4}
       backgroundColor={props.colors.mantle}
     >
-      <box width="45%" flexDirection="column" gap={0}>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.subtext0}>Global</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>? help</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>q/esc quit</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>r refresh</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>p files</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>t themes ({props.themeName})</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>h/l/left/right file  j/k scroll</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>mouse drag select</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>c comment selection</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>y copy comments (file)</text>
-        </box>
+      <box width="52%" flexDirection="column" gap={1}>
+        <text fg={props.colors.subtext0}>Global</text>
+        {globalLines.map((line) => (
+          <text key={line} fg={props.colors.text}>
+            {line}
+          </text>
+        ))}
       </box>
-      <box width="55%" flexDirection="column" gap={0}>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.subtext0}>Panels</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>Files: enter select, esc close</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>Files: j/k/up/down move</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>Files: type to filter, backspace delete</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>Themes: enter select, esc close</text>
-        </box>
-        <box width="100%" backgroundColor={props.colors.mantle}>
-          <text fg={props.colors.text}>Themes: j/k/up/down move</text>
-        </box>
+      <box width="48%" flexDirection="column" gap={1}>
+        <text fg={props.colors.subtext0}>Panels</text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Files</span>: {panelLines[0]}
+        </text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Files</span>: {panelLines[1]}
+        </text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Files</span>: {panelLines[2]}
+        </text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Themes</span>: {panelLines[0]}
+        </text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Themes</span>: {panelLines[1]}
+        </text>
       </box>
     </box>
   );
