@@ -813,6 +813,9 @@ function App() {
             {(message) => <text fg={colors().subtext0}>{message()}</text>}
           </Show>
           <text fg={colors().subtext0}>comments: {fileCommentCount()}</text>
+          <Show when={isDiffMultiSelect()}>
+            <text fg={colors().yellow}>multi-select</text>
+          </Show>
         </box>
         <text fg={colors().subtext0}>? help</text>
       </box>
