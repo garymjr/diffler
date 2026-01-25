@@ -140,6 +140,37 @@ describe("git", () => {
     expect(byPath.get("src/b.ts")?.hunks).toBe(1);
   });
 
+  it("loadChanges parses unstaged status entries with leading space", () => {
+    Bun.spawnSync = ((cmd: string[] | { cmd: string[] }) => {
+      const args = Array.isArray(cmd) ? cmd : cmd.cmd;
+      const joined = args.slice(1).join(" ");
+      if (joined === "rev-parse --is-inside-work-tree") {
+        return makeResult("true\n");
+      }
+      if (joined.startsWith("diff --patch")) {
+        return makeResult("");
+      }
+      if (joined.startsWith("diff --cached")) {
+        return makeResult("");
+      }
+      if (joined.startsWith("status --porcelain=v1")) {
+        const status = [" M src/only-unstaged.ts", ""].join("\0");
+        return makeResult(status);
+      }
+      return makeResult("");
+    }) as typeof Bun.spawnSync;
+
+    let error: string | null = null;
+    const items = loadChanges((value) => {
+      error = value;
+    });
+
+    expect(error).toBe(null);
+    expect(items).toHaveLength(1);
+    expect(items[0].path).toBe("src/only-unstaged.ts");
+    expect(items[0].status).toBe("modified");
+  });
+
   it("loadDiff counts added/deleted lines for untracked files", () => {
     Bun.spawnSync = ((cmd: string[] | { cmd: string[] }) => {
       const args = Array.isArray(cmd) ? cmd : cmd.cmd;
@@ -188,5 +219,47 @@ describe("git", () => {
     expect(result.diff).toBe("");
     expect(result.added).toBe(0);
     expect(result.deleted).toBe(0);
+  });
+
+  it("loadChanges supports stagedOnly filtering", () => {
+    const stagedDiff = [
+      "diff --git a/src/staged.ts b/src/staged.ts",
+      "index 1111111..2222222 100644",
+      "--- a/src/staged.ts",
+      "+++ b/src/staged.ts",
+      "@@ -1,1 +1,2 @@",
+      " line1",
+      "+line2",
+      "",
+    ].join("\n");
+
+    Bun.spawnSync = ((cmd: string[] | { cmd: string[] }) => {
+      const args = Array.isArray(cmd) ? cmd : cmd.cmd;
+      const joined = args.slice(1).join(" ");
+      if (joined === "rev-parse --is-inside-work-tree") {
+        return makeResult("true\n");
+      }
+      if (joined.startsWith("diff --patch --no-color")) {
+        return makeResult("");
+      }
+      if (joined.startsWith("diff --cached --patch --no-color")) {
+        return makeResult(stagedDiff);
+      }
+      if (joined.startsWith("status --porcelain=v1")) {
+        const status = [" M src/unstaged.ts", "M  src/staged.ts", ""].join("\0");
+        return makeResult(status);
+      }
+      return makeResult("");
+    }) as typeof Bun.spawnSync;
+
+    let error: string | null = null;
+    const items = loadChanges((value) => {
+      error = value;
+    }, { stagedOnly: true });
+
+    expect(error).toBe(null);
+    const byPath = new Map(items.map((item) => [item.path, item]));
+    expect(byPath.has("src/unstaged.ts")).toBe(false);
+    expect(byPath.get("src/staged.ts")?.hunks).toBe(1);
   });
 });

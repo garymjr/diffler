@@ -15,6 +15,8 @@ import { statusColor, statusLabel } from "./status";
 import { useAppKeyboard } from "./use-app-keyboard";
 import { useDiffSelection } from "./use-diff-selection";
 
+const stagedOnly = process.argv.includes("--staged");
+
 function App() {
   const renderer = useRenderer();
   const [error, setError] = createSignal<string | null>(null);
@@ -45,7 +47,7 @@ function App() {
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
   onMount(() => {
-    setChanges(loadChanges(setError));
+    setChanges(loadChanges(setError, { stagedOnly }));
   });
 
   const fileEntries = createMemo(() => changes());
@@ -298,7 +300,7 @@ function App() {
     if (!pathValue) return null;
     const change = changeMap().get(pathValue);
     if (!change) return null;
-    return loadDiff(change);
+    return loadDiff(change, { stagedOnly });
   });
 
   const diffLines = createMemo(() => buildDiffLines(diffData()?.diff ?? ""));
@@ -309,7 +311,7 @@ function App() {
   });
 
   const refreshChanges = () => {
-    setChanges(loadChanges(setError));
+    setChanges(loadChanges(setError, { stagedOnly }));
   };
 
   useAppKeyboard({

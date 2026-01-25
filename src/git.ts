@@ -33,20 +33,27 @@ function statusFromXY(x: string, y: string) {
   return { status: "modified" as const, needsExtraPath: false };
 }
 
-function parseStatus(output: string) {
+type LoadOptions = {
+  stagedOnly?: boolean;
+};
+
+function parseStatus(output: string, options: LoadOptions = {}) {
+  const stagedOnly = options.stagedOnly ?? false;
   const map = new Map<string, Pick<ChangeItem, "status" | "oldPath">>();
   if (!output) return map;
   const entries = output.split("\0").filter(Boolean);
 
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
-    const spaceIndex = entry.indexOf(" ");
+    if (entry.length < 3) continue;
+    const statusField = entry.slice(0, 2);
+    const spaceIndex = entry.indexOf(" ", 2);
     if (spaceIndex === -1) continue;
-    const statusField = entry.slice(0, spaceIndex);
     const path = entry.slice(spaceIndex + 1);
     const statusLetters = statusField.replace(/[0-9]/g, "");
     const x = statusLetters[0] ?? " ";
     const y = statusLetters[1] ?? " ";
+    if (stagedOnly && (x === " " || x === "?")) continue;
     const { status, needsExtraPath } = statusFromXY(x, y);
     if (!status) continue;
 
@@ -82,20 +89,26 @@ function mapChangeType(type: string | undefined): ChangeStatus {
   }
 }
 
-export function loadChanges(setError: (value: string | null) => void): ChangeItem[] {
+export function loadChanges(
+  setError: (value: string | null) => void,
+  options: LoadOptions = {}
+): ChangeItem[] {
+  const stagedOnly = options.stagedOnly ?? false;
   const repoCheck = runGit(["rev-parse", "--is-inside-work-tree"]);
   if (repoCheck.exitCode !== 0 || repoCheck.stdout.trim() !== "true") {
     setError("Not inside a git repository.");
     return [];
   }
 
-  const workingDiff = runGit(["diff", "--patch", "--no-color"]).stdout;
+  const workingDiff = stagedOnly ? "" : runGit(["diff", "--patch", "--no-color"]).stdout;
   const stagedDiff = runGit(["diff", "--cached", "--patch", "--no-color"]).stdout;
   const statusMap = parseStatus(
-    runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"]).stdout
+    runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"]).stdout,
+    { stagedOnly }
   );
 
-  const items = new Map<string, ChangeItem>();
+  const diffLookup = new Map<string, ChangeItem>();
+  const diffPrimary = new Map<string, ChangeItem>();
   const diffs = [workingDiff, stagedDiff].filter((diff) => diff.trim().length > 0);
 
   for (const diffText of diffs) {
@@ -109,52 +122,68 @@ export function loadChanges(setError: (value: string | null) => void): ChangeIte
     for (const patch of patches) {
       for (const file of patch.files) {
         const status = mapChangeType(file.type);
-        const existing = items.get(file.name);
-        if (!existing) {
-          items.set(file.name, {
-            path: file.name,
-            status,
-            oldPath: file.prevName ?? undefined,
-            hunks: file.hunks.length,
-          });
+        const entry: ChangeItem = {
+          path: file.name,
+          status,
+          oldPath: file.prevName ?? undefined,
+          hunks: file.hunks.length,
+        };
+        if (!diffPrimary.has(file.name)) {
+          diffPrimary.set(file.name, entry);
+        }
+        if (!diffLookup.has(file.name)) {
+          diffLookup.set(file.name, entry);
+        }
+        if (file.prevName && !diffLookup.has(file.prevName)) {
+          diffLookup.set(file.prevName, entry);
         }
       }
     }
   }
 
-  for (const [filePath, statusInfo] of statusMap.entries()) {
-    const existing = items.get(filePath);
-    if (existing) {
-      if (statusInfo.oldPath) {
-        existing.oldPath = statusInfo.oldPath;
-      }
-      if (statusInfo.status === "untracked") {
-        existing.status = "untracked";
-      }
-      continue;
-    }
+  const items = new Map<string, ChangeItem>();
 
+  for (const [filePath, statusInfo] of statusMap.entries()) {
+    const diffInfo =
+      diffLookup.get(filePath) ??
+      (statusInfo.oldPath ? diffLookup.get(statusInfo.oldPath) : undefined);
     items.set(filePath, {
       path: filePath,
       status: statusInfo.status,
-      oldPath: statusInfo.oldPath,
+      oldPath: statusInfo.oldPath ?? diffInfo?.oldPath,
+      hunks: diffInfo?.hunks,
     });
+  }
+
+  for (const [filePath, diffInfo] of diffPrimary.entries()) {
+    if (items.has(filePath)) continue;
+    items.set(filePath, diffInfo);
   }
 
   setError(null);
   return Array.from(items.values()).sort((a, b) => a.path.localeCompare(b.path));
 }
 
-export function loadDiff(change: ChangeItem): DiffData {
+export function loadDiff(change: ChangeItem, options: LoadOptions = {}): DiffData {
+  const stagedOnly = options.stagedOnly ?? false;
   const diffParts: string[] = [];
 
   if (change.status === "untracked") {
+    if (stagedOnly) {
+      return {
+        diff: "",
+        language: resolveLanguage(change.path),
+        added: 0,
+        deleted: 0,
+        message: "Untracked file is not staged.",
+      };
+    }
     const noIndex = runGit(["diff", "--no-index", "--patch", "--no-color", "--", "/dev/null", change.path]).stdout;
     if (noIndex.trim().length > 0) {
       diffParts.push(noIndex);
     }
   } else {
-    const unstaged = runGit(["diff", "--patch", "--no-color", "--", change.path]).stdout;
+    const unstaged = stagedOnly ? "" : runGit(["diff", "--patch", "--no-color", "--", change.path]).stdout;
     const staged = runGit(["diff", "--cached", "--patch", "--no-color", "--", change.path]).stdout;
     if (unstaged.trim().length > 0) diffParts.push(unstaged);
     if (staged.trim().length > 0) diffParts.push(staged);

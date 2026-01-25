@@ -23,6 +23,12 @@ bun dev
 
 Run inside a git repo.
 
+Staged-only mode:
+
+```bash
+bun dev -- --staged
+```
+
 ## Controls
 
 Global:
