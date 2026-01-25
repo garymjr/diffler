@@ -1,4 +1,4 @@
-import type { DiffRenderable, ScrollBoxRenderable, TextBufferRenderable } from "@opentui/core";
+import type { DiffRenderable, MouseEvent, ScrollBoxRenderable, TextBufferRenderable } from "@opentui/core";
 import { render, useRenderer } from "@opentui/solid";
 import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
 import path from "node:path";
@@ -414,6 +414,42 @@ function App() {
     }
     (codeRenderable as any).requestRender?.();
   };
+  const handleDiffMouseDown = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    if (isPanelOpen() || isThemePanelOpen() || isHelpPanelOpen() || isCommentPanelOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const codeRenderable = getDiffCodeRenderable();
+    if (!codeRenderable) return;
+    const rawLine = event.y - codeRenderable.y;
+    if (!Number.isFinite(rawLine)) return;
+    const lineIndex = Math.max(0, Math.min(getDiffLineCount() - 1, Math.floor(rawLine)));
+    setIsDiffMultiSelect(false);
+    setIsDiffCursorActive(true);
+    setDiffCursorLine(lineIndex);
+    setDiffSelectionAnchor(lineIndex);
+    setDiffSelectionFocus(lineIndex);
+    queueMicrotask(() => {
+      updateDiffCursorHighlight(lineIndex);
+      ensureDiffCursorVisible(lineIndex);
+      renderer.requestRender();
+    });
+  };
+  const handleDiffMouseUp = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    if (isPanelOpen() || isThemePanelOpen() || isHelpPanelOpen() || isCommentPanelOpen()) return;
+    const line = diffCursorLine();
+    if (line < 0) return;
+    queueMicrotask(() => {
+      if (isDiffMultiSelect()) {
+        updateDiffMultiSelection(diffSelectionAnchor(), diffSelectionFocus());
+      } else {
+        updateDiffCursorHighlight(line);
+      }
+      ensureDiffCursorVisible(line);
+      renderer.requestRender();
+    });
+  };
   const ensureDiffCursorVisible = (lineIndex: number) => {
     if (!diffScroll) return;
     const viewportHeight = (diffScroll as any).viewport?.height;
@@ -608,7 +644,20 @@ function App() {
     selectedPath,
     diffLines,
     diffRenderable,
+    diffScroll: () => diffScroll,
     setSelectionInfo,
+    onCursorMove: (line) => {
+      setIsDiffMultiSelect(false);
+      setIsDiffCursorActive(true);
+      setDiffCursorLine(line);
+      setDiffSelectionAnchor(line);
+      setDiffSelectionFocus(line);
+      queueMicrotask(() => {
+        updateDiffCursorHighlight(line);
+        ensureDiffCursorVisible(line);
+        renderer.requestRender();
+      });
+    },
   });
 
   return (
@@ -696,6 +745,8 @@ function App() {
                           ref={(el) => {
                             setDiffRenderable(el);
                           }}
+                          onMouseDown={handleDiffMouseDown}
+                          onMouseUp={handleDiffMouseUp}
                           diff={data().diff}
                           view="unified"
                           filetype={data().language}

@@ -1,4 +1,5 @@
-import type { DiffRenderable, TextBufferRenderable } from "@opentui/core";
+import type { DiffRenderable, ScrollBoxRenderable, TextBufferRenderable } from "@opentui/core";
+import { convertGlobalToLocalSelection } from "@opentui/core";
 import { useSelectionHandler } from "@opentui/solid";
 import type { Accessor } from "solid-js";
 import {
@@ -16,7 +17,9 @@ type DiffSelectionOptions = {
   selectedPath: Accessor<string | null>;
   diffLines: Accessor<DiffLine[]>;
   diffRenderable: Accessor<DiffRenderable | undefined>;
+  diffScroll?: Accessor<ScrollBoxRenderable | undefined>;
   setSelectionInfo: (value: SelectionInfo | null) => void;
+  onCursorMove?: (line: number) => void;
 };
 
 export function useDiffSelection(options: DiffSelectionOptions) {
@@ -37,7 +40,16 @@ export function useDiffSelection(options: DiffSelectionOptions) {
 
     if (!target) return;
     const range = target.getSelection?.();
-    if (!range) return;
+    if (!range) {
+      const localBounds = convertGlobalToLocalSelection(selection, target.x, target.y);
+      if (!localBounds) return;
+      const scrollTop = options.diffScroll?.()?.scrollTop ?? 0;
+      const lineIndex = Math.max(0, localBounds.focusY + scrollTop);
+      const lines = options.diffLines();
+      if (lines.length === 0) return;
+      options.onCursorMove?.(Math.min(lines.length - 1, lineIndex));
+      return;
+    }
     const plainText = target.plainText ?? "";
     if (!plainText) return;
 
@@ -50,11 +62,12 @@ export function useDiffSelection(options: DiffSelectionOptions) {
     );
     if (!lineRange) return;
 
-    const selectedText = selection.getSelectedText();
-    if (!selectedText || !selectedText.trim()) return;
-
     const clampedStart = Math.max(0, lineRange.startLine);
     const clampedEnd = Math.min(lines.length - 1, lineRange.endLine);
+    options.onCursorMove?.(clampedStart);
+
+    const selectedText = selection.getSelectedText();
+    if (!selectedText || !selectedText.trim()) return;
     const { oldRange, newRange } = extractLineRanges(lines, clampedStart, clampedEnd);
     const lineLabel = formatLineRanges(oldRange, newRange);
 
