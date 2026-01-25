@@ -15,6 +15,13 @@ function runGit(args: string[]) {
   };
 }
 
+function binaryDiffMessage(diff: string): string | null {
+  if (!diff) return null;
+  if (diff.includes("GIT binary patch")) return "Binary diff not shown.";
+  if (diff.includes("Binary files ") && diff.includes(" differ")) return "Binary diff not shown.";
+  return null;
+}
+
 function statusFromXY(x: string, y: string) {
   if (x === "!" || y === "!") return { status: null, needsExtraPath: false };
   if (x === "?" || y === "?") return { status: "untracked" as const, needsExtraPath: false };
@@ -154,10 +161,12 @@ export function loadDiff(change: ChangeItem): DiffData {
   }
 
   const diff = diffParts.join("\n");
+  const message = binaryDiffMessage(diff);
+  const safeDiff = message ? "" : diff;
   let added = 0;
   let deleted = 0;
 
-  for (const line of diff.split("\n")) {
+  for (const line of safeDiff.split("\n")) {
     if (line.startsWith("+++ ") || line.startsWith("--- ")) continue;
     if (line.startsWith("+")) {
       added += 1;
@@ -167,9 +176,10 @@ export function loadDiff(change: ChangeItem): DiffData {
   }
 
   return {
-    diff,
+    diff: safeDiff,
     language: resolveLanguage(change.path),
     added,
     deleted,
+    message: message ?? undefined,
   };
 }

@@ -425,26 +425,33 @@ function App() {
               >
                 {(data) => (
                   <Show
-                    when={data().diff.trim().length > 0}
-                    fallback={<text fg={colors().subtext0}>No diff for this file.</text>}
+                    when={data().message}
+                    fallback={(
+                      <Show
+                        when={data().diff.trim().length > 0}
+                        fallback={<text fg={colors().subtext0}>No diff for this file.</text>}
+                      >
+                        <diff
+                          ref={(el) => {
+                            diffRenderable = el;
+                          }}
+                          diff={data().diff}
+                          view="unified"
+                          filetype={data().language}
+                          syntaxStyle={theme().syntaxStyle}
+                          addedBg={theme().diff.addedBg}
+                          removedBg={theme().diff.removedBg}
+                          contextBg={theme().diff.contextBg}
+                          addedSignColor={theme().diff.addedSignColor}
+                          removedSignColor={theme().diff.removedSignColor}
+                          addedLineNumberBg={theme().diff.addedLineNumberBg}
+                          removedLineNumberBg={theme().diff.removedLineNumberBg}
+                          showLineNumbers
+                        />
+                      </Show>
+                    )}
                   >
-                    <diff
-                      ref={(el) => {
-                        diffRenderable = el;
-                      }}
-                      diff={data().diff}
-                      view="unified"
-                      filetype={data().language}
-                      syntaxStyle={theme().syntaxStyle}
-                      addedBg={theme().diff.addedBg}
-                      removedBg={theme().diff.removedBg}
-                      contextBg={theme().diff.contextBg}
-                      addedSignColor={theme().diff.addedSignColor}
-                      removedSignColor={theme().diff.removedSignColor}
-                      addedLineNumberBg={theme().diff.addedLineNumberBg}
-                      removedLineNumberBg={theme().diff.removedLineNumberBg}
-                      showLineNumbers
-                    />
+                    <text fg={colors().subtext0}>{data().message}</text>
                   </Show>
                 )}
               </Show>

@@ -19,4 +19,5 @@ export type DiffData = {
   language?: string;
   added: number;
   deleted: number;
+  message?: string;
 };
