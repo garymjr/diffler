@@ -34,33 +34,42 @@ export type CommentEntry = {
 
 export function buildDiffLines(diff: string): DiffLine[] {
   if (!diff.trim()) return [];
-  const patches = parsePatchFiles(diff);
-  const file = patches[0]?.files?.[0];
-  if (!file || !file.hunks) return [];
+  let patches: ReturnType<typeof parsePatchFiles>;
+  try {
+    patches = parsePatchFiles(diff);
+  } catch {
+    return [];
+  }
+  if (patches.length === 0) return [];
 
   const lines: DiffLine[] = [];
 
-  for (const hunk of file.hunks) {
-    let oldLine = hunk.deletionStart;
-    let newLine = hunk.additionStart;
+  for (const patch of patches) {
+    for (const file of patch.files ?? []) {
+      if (!file?.hunks?.length) continue;
+      for (const hunk of file.hunks) {
+        let oldLine = hunk.deletionStart;
+        let newLine = hunk.additionStart;
 
-    for (const group of hunk.hunkContent ?? []) {
-      if (group.type === "context") {
-        for (const line of group.lines) {
-          lines.push({ content: line, oldLine, newLine, type: "context" });
-          oldLine += 1;
-          newLine += 1;
+        for (const group of hunk.hunkContent ?? []) {
+          if (group.type === "context") {
+            for (const line of group.lines) {
+              lines.push({ content: line, oldLine, newLine, type: "context" });
+              oldLine += 1;
+              newLine += 1;
+            }
+            continue;
+          }
+
+          for (const line of group.deletions) {
+            lines.push({ content: line, oldLine, type: "deletion" });
+            oldLine += 1;
+          }
+          for (const line of group.additions) {
+            lines.push({ content: line, newLine, type: "addition" });
+            newLine += 1;
+          }
         }
-        continue;
-      }
-
-      for (const line of group.deletions) {
-        lines.push({ content: line, oldLine, type: "deletion" });
-        oldLine += 1;
-      }
-      for (const line of group.additions) {
-        lines.push({ content: line, newLine, type: "addition" });
-        newLine += 1;
       }
     }
   }

@@ -268,6 +268,14 @@ function App() {
   });
 
   createEffect(() => {
+    if (!isPanelOpen()) return;
+    panelQuery();
+    if (!panelScroll) return;
+    panelScroll.scrollTo({ x: 0, y: 0 });
+    lastPanelIndex = 0;
+  });
+
+  createEffect(() => {
     const files = fileEntries();
     const selected = selectedPath();
     if (files.length === 0) {

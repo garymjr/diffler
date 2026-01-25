@@ -33,16 +33,20 @@ function parseStatus(output: string) {
 
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
-    if (entry.length < 3) continue;
-    const code = entry.slice(0, 2);
-    const path = entry.slice(3);
-    const { status, needsExtraPath } = statusFromXY(code[0], code[1]);
+    const spaceIndex = entry.indexOf(" ");
+    if (spaceIndex === -1) continue;
+    const statusField = entry.slice(0, spaceIndex);
+    const path = entry.slice(spaceIndex + 1);
+    const statusLetters = statusField.replace(/[0-9]/g, "");
+    const x = statusLetters[0] ?? " ";
+    const y = statusLetters[1] ?? " ";
+    const { status, needsExtraPath } = statusFromXY(x, y);
     if (!status) continue;
 
     if (needsExtraPath) {
-      const oldPath = entries[index + 1];
-      if (oldPath) {
-        map.set(path, { status, oldPath });
+      const newPath = entries[index + 1];
+      if (newPath) {
+        map.set(newPath, { status, oldPath: path });
         index += 1;
         continue;
       }
