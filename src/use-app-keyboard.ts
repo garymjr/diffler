@@ -1,4 +1,4 @@
-import type { CliRenderer, ScrollBoxRenderable } from "@opentui/core";
+import type { CliRenderer } from "@opentui/core";
 import { useKeyboard } from "@opentui/solid";
 import type { Accessor } from "solid-js";
 import type { ChangeItem } from "./types";
@@ -29,7 +29,7 @@ type AppKeyboardOptions = {
   openCommentPanel: () => void;
   copyAllComments: () => void;
   refreshChanges: () => void;
-  diffScroll: () => ScrollBoxRenderable | undefined;
+  moveDiffCursor: (delta: number) => void;
   fileEntries: Accessor<ChangeItem[]>;
   selectedPath: Accessor<string | null>;
 };
@@ -175,12 +175,30 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     }
 
     if (key.name === "j") {
-      options.diffScroll()?.scrollBy(1);
+      key.preventDefault();
+      key.stopPropagation();
+      options.moveDiffCursor(1);
       return;
     }
 
     if (key.name === "k") {
-      options.diffScroll()?.scrollBy(-1);
+      key.preventDefault();
+      key.stopPropagation();
+      options.moveDiffCursor(-1);
+      return;
+    }
+
+    if (key.name === "up" || key.sequence === "\u001b[A") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.moveDiffCursor(-1);
+      return;
+    }
+
+    if (key.name === "down" || key.sequence === "\u001b[B") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.moveDiffCursor(1);
       return;
     }
 

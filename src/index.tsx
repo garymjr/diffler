@@ -1,4 +1,4 @@
-import type { DiffRenderable, ScrollBoxRenderable } from "@opentui/core";
+import type { DiffRenderable, ScrollBoxRenderable, TextBufferRenderable } from "@opentui/core";
 import { render, useRenderer } from "@opentui/solid";
 import { createEffect, createMemo, createResource, createSignal, onCleanup, onMount, Show } from "solid-js";
 import path from "node:path";
@@ -41,15 +41,19 @@ function App() {
   const [toastMessage, setToastMessage] = createSignal<string | null>(null);
   const [ignoreNextCommentInput, setIgnoreNextCommentInput] = createSignal(false);
   const [refreshTick, setRefreshTick] = createSignal(0);
+  const [diffCursorLine, setDiffCursorLine] = createSignal(0);
+  const [isDiffCursorActive, setIsDiffCursorActive] = createSignal(true);
   const theme = createMemo(() => catppuccinThemes[themeName()]);
   const colors = createMemo(() => theme().colors);
   const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
   let diffScroll: ScrollBoxRenderable | undefined;
   let panelScroll: ScrollBoxRenderable | undefined;
-  let diffRenderable: DiffRenderable | undefined;
+  const [diffRenderable, setDiffRenderable] = createSignal<DiffRenderable | undefined>(undefined);
   let lastPanelIndex = 0;
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  let diffCursorInitTimer: ReturnType<typeof setTimeout> | undefined;
+  let diffCursorInitAttempts = 0;
 
   const fileEntries = createMemo(() => changes());
   const filteredEntries = createMemo(() => {
@@ -324,11 +328,120 @@ function App() {
     if (!filePath) return 0;
     return comments().filter((entry) => entry.filePath === filePath).length;
   });
+  const getDiffCodeRenderable = (): TextBufferRenderable | null => {
+    const renderable = diffRenderable() as
+      | (DiffRenderable & { leftCodeRenderable?: TextBufferRenderable; rightCodeRenderable?: TextBufferRenderable })
+      | undefined;
+    return renderable?.leftCodeRenderable ?? renderable?.rightCodeRenderable ?? null;
+  };
+  const getDiffLineCount = () => {
+    const codeRenderable = getDiffCodeRenderable();
+    if (!codeRenderable) return 0;
+    const lineInfo = codeRenderable.lineInfo;
+    return lineInfo?.lineStarts?.length ?? 0;
+  };
+  const updateDiffCursorHighlight = (lineIndex: number) => {
+    if (!isDiffCursorActive()) return;
+    const codeRenderable = getDiffCodeRenderable();
+    if (!codeRenderable) return;
+    const view = (codeRenderable as any).textBufferView;
+    if (view?.setLocalSelection) {
+      const width = Math.max(1, codeRenderable.width);
+      const clamped = Math.max(0, Math.min(getDiffLineCount() - 1, lineIndex));
+      view.setLocalSelection(
+        0,
+        clamped,
+        Math.max(0, width - 1),
+        clamped,
+        (codeRenderable as any).selectionBg,
+        (codeRenderable as any).selectionFg
+      );
+      (codeRenderable as any).requestRender?.();
+    }
+  };
+  const ensureDiffCursorVisible = (lineIndex: number) => {
+    if (!diffScroll) return;
+    const viewportHeight = (diffScroll as any).viewport?.height;
+    const viewHeight = typeof viewportHeight === "number" ? viewportHeight : undefined;
+    if (!viewHeight || viewHeight <= 0) {
+      diffScroll.scrollTo({ x: 0, y: Math.max(0, lineIndex) });
+      return;
+    }
+    const top = diffScroll.scrollTop;
+    const bottom = top + Math.max(0, viewHeight - 1);
+    if (lineIndex < top) {
+      diffScroll.scrollTo({ x: 0, y: lineIndex });
+    } else if (lineIndex > bottom) {
+      diffScroll.scrollTo({ x: 0, y: Math.max(0, lineIndex - viewHeight + 1) });
+    }
+  };
 
   const refreshChanges = () => {
     setChanges(loadChanges(setError, { stagedOnly }));
     setRefreshTick((value) => value + 1);
   };
+  const moveDiffCursor = (delta: number) => {
+    const totalLines = getDiffLineCount();
+    if (totalLines === 0) return;
+    setIsDiffCursorActive(true);
+    const current = diffCursorLine();
+    const next = Math.max(0, Math.min(totalLines - 1, (current < 0 ? 0 : current) + delta));
+    setDiffCursorLine(next);
+    queueMicrotask(() => {
+      updateDiffCursorHighlight(next);
+      ensureDiffCursorVisible(next);
+      renderer.requestRender();
+    });
+  };
+  const scheduleDiffCursorInit = () => {
+    if (diffCursorInitTimer) clearTimeout(diffCursorInitTimer);
+    diffCursorInitAttempts = 0;
+    const tryInit = () => {
+      diffCursorInitAttempts += 1;
+      if (!getDiffCodeRenderable()) {
+        if (diffCursorInitAttempts < 12) {
+          diffCursorInitTimer = setTimeout(tryInit, 16);
+        }
+        return;
+      }
+      const totalLines = getDiffLineCount();
+      if (totalLines === 0) return;
+      if (diffCursorLine() < 0) setDiffCursorLine(0);
+      updateDiffCursorHighlight(diffCursorLine());
+      ensureDiffCursorVisible(diffCursorLine());
+      renderer.requestRender();
+    };
+    diffCursorInitTimer = setTimeout(tryInit, 0);
+  };
+  createEffect(() => {
+    selectedPath();
+    diffData();
+    const totalLines = getDiffLineCount();
+    if (totalLines === 0) {
+      setDiffCursorLine(-1);
+      setIsDiffCursorActive(false);
+    } else {
+      setDiffCursorLine(0);
+      setIsDiffCursorActive(true);
+    }
+    scheduleDiffCursorInit();
+  });
+  createEffect(() => {
+    if (!isDiffCursorActive()) return;
+    const line = diffCursorLine();
+    if (line < 0) return;
+    diffData();
+    queueMicrotask(() => {
+      updateDiffCursorHighlight(line);
+      ensureDiffCursorVisible(line);
+      renderer.requestRender();
+    });
+  });
+  createEffect(() => {
+    diffRenderable();
+    diffData();
+    scheduleDiffCursorInit();
+  });
 
   onMount(() => {
     refreshChanges();
@@ -373,7 +486,7 @@ function App() {
     openCommentPanel,
     copyAllComments,
     refreshChanges,
-    diffScroll: () => diffScroll,
+    moveDiffCursor,
     fileEntries,
     selectedPath,
   });
@@ -383,7 +496,7 @@ function App() {
       isPanelOpen() || isThemePanelOpen() || isHelpPanelOpen() || isCommentPanelOpen(),
     selectedPath,
     diffLines,
-    diffRenderable: () => diffRenderable,
+    diffRenderable,
     setSelectionInfo,
   });
 
@@ -470,7 +583,7 @@ function App() {
                       >
                         <diff
                           ref={(el) => {
-                            diffRenderable = el;
+                            setDiffRenderable(el);
                           }}
                           diff={data().diff}
                           view="unified"
@@ -483,6 +596,8 @@ function App() {
                           removedSignColor={theme().diff.removedSignColor}
                           addedLineNumberBg={theme().diff.addedLineNumberBg}
                           removedLineNumberBg={theme().diff.removedLineNumberBg}
+                          selectionBg={theme().palette.sky}
+                          selectionFg={theme().palette.crust}
                           showLineNumbers
                         />
                       </Show>
