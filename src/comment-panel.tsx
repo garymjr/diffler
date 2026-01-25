@@ -1,7 +1,13 @@
 import { Show, createEffect } from "solid-js";
-import type { TextareaRenderable } from "@opentui/core";
+import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { ThemeColors } from "./theme";
 import type { SelectionInfo } from "./comments";
+
+const commentKeyBindings: KeyBinding[] = [
+  { name: "enter", action: "submit" },
+  { name: "j", ctrl: true, action: "newline" },
+  { name: "enter", meta: true, action: "newline" },
+];
 
 type CommentPanelProps = {
   isOpen: boolean;
@@ -10,6 +16,7 @@ type CommentPanelProps = {
   selection: SelectionInfo | null;
   comment: string;
   onCommentChange: (value: string) => void;
+  onSubmit: () => void;
 };
 
 export function CommentPanel(props: CommentPanelProps) {
@@ -74,12 +81,14 @@ export function CommentPanel(props: CommentPanelProps) {
             placeholder="Type comment..."
             height={6}
             focused={props.isFocused}
+            keyBindings={commentKeyBindings}
+            onSubmit={props.onSubmit}
             backgroundColor={props.colors.mantle}
             textColor={props.colors.text}
             placeholderColor={props.colors.subtext0}
             cursorColor={props.colors.blue}
           />
-          <text fg={props.colors.subtext0}>Ctrl+Enter save  Esc cancel</text>
+          <text fg={props.colors.subtext0}>Enter save  Ctrl+J/Alt+Enter newline  Esc cancel</text>
         </box>
       </box>
     </Show>

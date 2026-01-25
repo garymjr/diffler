@@ -20,6 +20,7 @@ export function HelpPanel(props: HelpPanelProps) {
     "j/k/up/down move",
     "type to filter | backspace delete",
   ];
+  const commentLines = ["enter save | ctrl+j/alt+enter newline | esc close"];
 
   return (
     <box
@@ -56,6 +57,9 @@ export function HelpPanel(props: HelpPanelProps) {
         </text>
         <text fg={props.colors.text}>
           <span fg={props.colors.subtext0}>Themes</span>: {panelLines[1]}
+        </text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Comment</span>: {commentLines[0]}
         </text>
       </box>
     </box>

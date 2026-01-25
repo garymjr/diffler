@@ -42,9 +42,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       if (key.name === "escape") {
         options.closeCommentPanel();
       }
-      if ((key.name === "enter" || key.name === "return") && key.ctrl) {
-        options.saveComment();
-      }
       return;
     }
 

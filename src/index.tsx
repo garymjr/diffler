@@ -827,6 +827,7 @@ function App() {
         selection={commentSelection()}
         comment={commentDraft()}
         onCommentChange={handleCommentChange}
+        onSubmit={saveComment}
       />
       <ChangesPanel
         isOpen={isPanelOpen()}
