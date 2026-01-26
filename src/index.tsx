@@ -9,6 +9,7 @@ import { HelpPanel } from "./help-panel";
 import { getBranchName, getRepoRoot, loadChanges, loadDiff } from "./git";
 import { ThemePanel } from "./theme-panel";
 import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./theme";
+import { EmptyState } from "./empty-state";
 import type { ChangeItem } from "./types";
 import { copyToClipboard } from "./clipboard";
 import {
@@ -803,7 +804,9 @@ function App() {
           >
             <Show
               when={selectedFileName()}
-              fallback={<text fg={colors().subtext0}>No local changes.</text>}
+              fallback={
+                <text fg={colors().subtext0}>Working tree clean · make a change to view a diff.</text>
+              }
             >
               {(value) => (
                 <box flexDirection="row" alignItems="center" gap={1}>
@@ -871,7 +874,14 @@ function App() {
           >
             <Show
               when={selectedPath()}
-              fallback={<text fg={colors().subtext0}>No local changes.</text>}
+              fallback={
+                <EmptyState
+                  title="CLEAN"
+                  subtitle="Working tree clean."
+                  hint="Make a change to view a diff."
+                  colors={colors()}
+                />
+              }
             >
               <Show
                 when={diffData()}
@@ -883,7 +893,9 @@ function App() {
                     fallback={(
                       <Show
                         when={data().diff.trim().length > 0}
-                        fallback={<text fg={colors().subtext0}>No diff for this file.</text>}
+                        fallback={
+                          <text fg={colors().subtext0}>No diff for this file. Try another file.</text>
+                        }
                       >
                         <diff
                           ref={(el) => {

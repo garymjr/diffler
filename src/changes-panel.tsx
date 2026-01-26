@@ -69,7 +69,11 @@ export function ChangesPanel(props: ChangesPanelProps) {
         >
           <For
             each={props.entries}
-            fallback={<text fg={props.colors.subtext0}>No matching files.</text>}
+            fallback={
+              <text fg={props.colors.subtext0}>
+                No matches. <span fg={props.colors.subtext0}>Esc</span> to clear filter.
+              </text>
+            }
           >
             {(entry, index) => {
               const isSelected = () => index() === props.selectedIndex;
