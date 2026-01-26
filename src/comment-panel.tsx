@@ -48,11 +48,11 @@ export function CommentPanel(props: CommentPanelProps) {
           height="60%"
           border
           borderStyle="rounded"
-          borderColor={props.colors.crust}
+          borderColor={props.colors.surface2}
           padding={1}
           flexDirection="column"
           gap={1}
-          backgroundColor={props.colors.crust}
+          backgroundColor={props.colors.surface1}
         >
           <text fg={props.colors.text}>Add comment</text>
           <box flexDirection="column" gap={0}>
@@ -61,7 +61,7 @@ export function CommentPanel(props: CommentPanelProps) {
               {(label) => <text fg={props.colors.subtext0}>Lines: {label()}</text>}
             </Show>
           </box>
-          <box border borderStyle="rounded" padding={1} backgroundColor={props.colors.mantle}>
+          <box border borderStyle="rounded" padding={1} backgroundColor={props.colors.surface0}>
             <scrollbox height={6}>
               <Show
                 when={props.selection?.text}
@@ -83,7 +83,7 @@ export function CommentPanel(props: CommentPanelProps) {
             focused={props.isFocused}
             keyBindings={commentKeyBindings}
             onSubmit={props.onSubmit}
-            backgroundColor={props.colors.mantle}
+            backgroundColor={props.colors.surface0}
             textColor={props.colors.text}
             placeholderColor={props.colors.subtext0}
             cursorColor={props.colors.blue}

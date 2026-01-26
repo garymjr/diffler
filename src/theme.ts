@@ -33,7 +33,18 @@ export type CatppuccinPalette = {
 
 export type ThemeColors = Pick<
   CatppuccinPalette,
-  "base" | "mantle" | "crust" | "text" | "subtext0" | "red" | "green" | "yellow" | "blue"
+  | "base"
+  | "mantle"
+  | "crust"
+  | "surface0"
+  | "surface1"
+  | "surface2"
+  | "text"
+  | "subtext0"
+  | "red"
+  | "green"
+  | "yellow"
+  | "blue"
 >;
 
 export type Theme = {
@@ -93,8 +104,11 @@ const buildTheme = (name: ThemeName, palette: CatppuccinPalette): Theme => ({
   palette,
   colors: {
     base: palette.base,
-    mantle: palette.mantle,
+    mantle: mixHex(palette.base, palette.crust, 0.18),
     crust: palette.crust,
+    surface0: palette.surface0,
+    surface1: palette.surface1,
+    surface2: palette.surface2,
     text: palette.text,
     subtext0: palette.subtext0,
     red: palette.red,

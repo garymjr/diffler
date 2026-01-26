@@ -26,11 +26,11 @@ export function ThemePanel(props: ThemePanelProps) {
           height="22%"
           border
           borderStyle="rounded"
-          borderColor={props.colors.crust}
+          borderColor={props.colors.surface2}
           padding={1}
           flexDirection="column"
           gap={1}
-          backgroundColor={props.colors.crust}
+          backgroundColor={props.colors.surface1}
         >
           <text fg={props.colors.subtext0}>Themes</text>
           <box flexGrow={1} height="100%">

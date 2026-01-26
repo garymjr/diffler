@@ -773,7 +773,7 @@ function App() {
   });
 
   return (
-    <box width="100%" height="100%" flexDirection="column" backgroundColor={colors().crust}>
+    <box width="100%" height="100%" flexDirection="column" backgroundColor={colors().base}>
       <box
         height={6}
         width="100%"
