@@ -354,6 +354,18 @@ function App() {
   );
 
   const diffLines = createMemo(() => buildDiffLines(diffData()?.diff ?? ""));
+  const diffLineCount = createMemo(() => diffLines().length);
+  const cursorLineLabel = createMemo(() => {
+    const total = diffLineCount();
+    const line = diffCursorLine();
+    if (total <= 0 || line < 0) return "line: -";
+    return `line: ${line + 1}/${total}`;
+  });
+  const selectionLabel = createMemo(() => {
+    const selection = selectionInfo();
+    if (!selection || !selection.lineLabel) return "sel: -";
+    return `sel: ${selection.lineLabel}`;
+  });
   const fileCommentCount = createMemo(() => {
     const filePath = selectedPath();
     if (!filePath) return 0;
@@ -446,6 +458,7 @@ function App() {
     if (!Number.isFinite(rawLine)) return;
     const lineIndex = Math.max(0, Math.min(getDiffLineCount() - 1, Math.floor(rawLine)));
     setIsDiffMultiSelect(false);
+    setSelectionInfo(null);
     setIsDiffCursorActive(true);
     setDiffCursorLine(lineIndex);
     setDiffSelectionAnchor(lineIndex);
@@ -516,6 +529,7 @@ function App() {
       });
       return;
     }
+    setSelectionInfo(null);
     queueMicrotask(() => {
       updateDiffCursorHighlight(next);
       ensureDiffCursorVisible(next);
@@ -884,16 +898,50 @@ function App() {
         alignItems="center"
         backgroundColor={colors().mantle}
       >
-        <box flexGrow={1} flexDirection="row" gap={2}>
+        <box flexGrow={1} flexDirection="row" gap={2} alignItems="center">
           <Show when={statusMessage()}>
             {(message) => <text fg={colors().subtext0}>{message()}</text>}
           </Show>
+          <Show
+            when={selectedChange()}
+            fallback={<text fg={colors().subtext0}>status: n/a</text>}
+          >
+            {(change) => (
+              <text fg={statusColor(change().status, colors())}>
+                status: {statusLabel(change().status)}
+              </text>
+            )}
+          </Show>
+          <text fg={colors().subtext0}>{cursorLineLabel()}</text>
+          <text fg={colors().subtext0}>{selectionLabel()}</text>
           <text fg={colors().subtext0}>comments: {fileCommentCount()}</text>
           <Show when={isDiffMultiSelect()}>
             <text fg={colors().yellow}>multi-select</text>
           </Show>
         </box>
-        <text fg={colors().subtext0}>? help</text>
+        <box flexDirection="row" gap={2} alignItems="center">
+          <text fg={colors().subtext0}>
+            <strong>p</strong> files
+          </text>
+          <text fg={colors().subtext0}>
+            <strong>t</strong> theme
+          </text>
+          <text fg={colors().subtext0}>
+            <strong>c</strong> comment
+          </text>
+          <text fg={colors().subtext0}>
+            <strong>y</strong> copy
+          </text>
+          <text fg={colors().subtext0}>
+            <strong>r</strong> refresh
+          </text>
+          <text fg={colors().subtext0}>
+            <strong>q</strong> quit
+          </text>
+          <text fg={colors().subtext0}>
+            <strong>?</strong> help
+          </text>
+        </box>
       </box>
 
       <CommentPanel
