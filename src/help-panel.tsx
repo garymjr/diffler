@@ -8,7 +8,7 @@ type HelpPanelProps = {
 export function HelpPanel(props: HelpPanelProps) {
   const globalLines = [
     "? help | q/esc quit | r refresh",
-    `p files | t themes (${props.themeName})`,
+    `p focus files | tab toggle focus | t themes (${props.themeName})`,
     "h/l/left/right file | j/k/up/down move line",
     "v multi-select (j/k expand)",
     "mouse drag select | c comment selection",
@@ -16,9 +16,9 @@ export function HelpPanel(props: HelpPanelProps) {
   ];
 
   const panelLines = [
-    "enter select | esc close",
+    "/ search | enter accept | esc clear",
     "j/k/up/down move",
-    "type to filter | backspace delete",
+    "enter select | esc blur",
   ];
   const commentLines = ["enter save | ctrl+j/alt+enter newline | esc close"];
 

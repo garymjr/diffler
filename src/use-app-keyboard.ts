@@ -18,6 +18,8 @@ type AppKeyboardOptions = {
   moveThemeSelection: (delta: number) => void;
   isPanelOpen: Accessor<boolean>;
   closePanel: () => void;
+  isPanelSearchActive: Accessor<boolean>;
+  setIsPanelSearchActive: (value: boolean) => void;
   panelSelected: Accessor<ChangeItem | null>;
   setSelectedPath: (path: string) => void;
   movePanelSelection: (delta: number) => void;
@@ -79,8 +81,35 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     }
 
     if (options.isPanelOpen()) {
+      if (options.isPanelSearchActive()) {
+        if (key.name === "tab") {
+          options.setIsPanelSearchActive(false);
+          options.closePanel();
+          return;
+        }
+        if (key.name === "escape") {
+          options.setPanelQuery("");
+          options.setIsPanelSearchActive(false);
+          return;
+        }
+        if (key.name === "enter" || key.name === "return") {
+          options.setIsPanelSearchActive(false);
+          return;
+        }
+        return;
+      }
+      if (key.name === "tab") {
+        options.closePanel();
+        return;
+      }
       if (key.name === "escape") {
         options.closePanel();
+        return;
+      }
+      if (key.name === "/") {
+        key.preventDefault();
+        key.stopPropagation();
+        options.setIsPanelSearchActive(true);
         return;
       }
       if (key.name === "enter" || key.name === "return") {
@@ -115,19 +144,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
         options.movePanelSelection(1);
         return;
       }
-      if (key.name === "backspace") {
-        options.setPanelQuery((value) => value.slice(0, -1));
-        return;
-      }
-      if (key.name === "space") {
-        options.setPanelQuery((value) => `${value} `);
-        return;
-      }
-      if (!key.ctrl && !key.meta && !key.option && key.name.length === 1) {
-        const nextChar = key.shift ? key.name.toUpperCase() : key.name;
-        options.setPanelQuery((value) => `${value}${nextChar}`);
-        return;
-      }
       return;
     }
 
@@ -145,6 +161,15 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
 
     if (key.name === "p") {
       options.openPanel();
+      return;
+    }
+
+    if (key.name === "tab") {
+      if (options.isPanelOpen()) {
+        options.closePanel();
+      } else {
+        options.openPanel();
+      }
       return;
     }
 

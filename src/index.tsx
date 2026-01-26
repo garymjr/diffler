@@ -34,6 +34,7 @@ function App() {
   const [isPanelOpen, setIsPanelOpen] = createSignal(false);
   const [panelQuery, setPanelQuery] = createSignal("");
   const [panelIndex, setPanelIndex] = createSignal(0);
+  const [isPanelSearchActive, setIsPanelSearchActive] = createSignal(false);
   const [themeName, setThemeName] = createSignal<ThemeName>("mocha");
   const [isThemePanelOpen, setIsThemePanelOpen] = createSignal(false);
   const [themeIndex, setThemeIndex] = createSignal(0);
@@ -108,13 +109,19 @@ function App() {
   });
   const openPanel = () => {
     setPanelQuery("");
-    setPanelIndex(0);
+    const index = selectedIndex();
+    setPanelIndex(index >= 0 ? index : 0);
     setIsPanelOpen(true);
+    setIsPanelSearchActive(false);
     setIsThemePanelOpen(false);
     setIsHelpPanelOpen(false);
   };
   const closePanel = () => {
     setIsPanelOpen(false);
+    setIsPanelSearchActive(false);
+    setPanelQuery("");
+    const index = selectedIndex();
+    if (index >= 0) setPanelIndex(index);
   };
   const openThemePanel = () => {
     setIsPanelOpen(false);
@@ -251,7 +258,6 @@ function App() {
   };
 
   createEffect(() => {
-    if (!isPanelOpen()) return;
     const entries = filteredEntries();
     if (entries.length === 0) {
       if (panelIndex() !== -1) setPanelIndex(-1);
@@ -283,7 +289,6 @@ function App() {
   });
 
   createEffect(() => {
-    if (!isPanelOpen()) return;
     const index = panelIndex();
     if (!panelScroll || index < 0) return;
     const delta = index - lastPanelIndex;
@@ -294,11 +299,25 @@ function App() {
   });
 
   createEffect(() => {
-    if (!isPanelOpen()) return;
     panelQuery();
     if (!panelScroll) return;
     panelScroll.scrollTo({ x: 0, y: 0 });
     lastPanelIndex = 0;
+  });
+
+  createEffect(() => {
+    if (isPanelOpen()) return;
+    const entries = filteredEntries();
+    if (entries.length === 0) return;
+    const current = selectedPath();
+    if (!current) {
+      if (panelIndex() !== 0) setPanelIndex(0);
+      return;
+    }
+    const index = entries.findIndex((entry) => entry.path === current);
+    if (index >= 0 && index !== panelIndex()) {
+      setPanelIndex(index);
+    }
   });
 
   createEffect(() => {
@@ -630,6 +649,8 @@ function App() {
     moveThemeSelection,
     isPanelOpen,
     closePanel,
+    isPanelSearchActive,
+    setIsPanelSearchActive,
     panelSelected,
     setSelectedPath,
     movePanelSelection,
@@ -737,13 +758,36 @@ function App() {
         </box>
       </box>
 
-      <box flexGrow={1} height="100%" padding={1} flexDirection="column" backgroundColor={colors().base}>
+      <box flexGrow={1} height="100%" padding={1} flexDirection="row" gap={1} backgroundColor={colors().base}>
+        <ChangesPanel
+          isOpen={isPanelOpen()}
+          isSearchActive={isPanelSearchActive()}
+          query={panelQuery()}
+          entries={filteredEntries()}
+          selectedIndex={panelIndex()}
+          colors={colors()}
+          statusLabel={statusLabel}
+          statusColor={(status) => statusColor(status, colors())}
+          onQueryChange={setPanelQuery}
+          onScrollRef={(el) => {
+            panelScroll = el;
+            if (panelScroll) {
+              const index = panelIndex();
+              if (index >= 0) panelScroll.scrollTo({ x: 0, y: index });
+              lastPanelIndex = index;
+            }
+          }}
+        />
         <box
           flexGrow={1}
           height="100%"
           border
           borderStyle="single"
-          borderColor={theme().palette.surface2}
+          borderColor={
+            !isPanelOpen() && !isThemePanelOpen() && !isHelpPanelOpen() && !isCommentPanelOpen()
+              ? colors().blue
+              : theme().palette.surface2
+          }
           title="Diff"
           titleAlignment="left"
           padding={1}
@@ -860,19 +904,6 @@ function App() {
         comment={commentDraft()}
         onCommentChange={handleCommentChange}
         onSubmit={saveComment}
-      />
-      <ChangesPanel
-        isOpen={isPanelOpen()}
-        query={panelQuery()}
-        entries={filteredEntries()}
-        selectedIndex={panelIndex()}
-        colors={colors()}
-        statusLabel={statusLabel}
-        statusColor={(status) => statusColor(status, colors())}
-        onQueryChange={setPanelQuery}
-        onScrollRef={(el) => {
-          panelScroll = el;
-        }}
       />
       <ThemePanel
         isOpen={isThemePanelOpen()}
