@@ -6,7 +6,7 @@ import { watch } from "node:fs";
 import { ChangesPanel } from "./changes-panel";
 import { CommentPanel } from "./comment-panel";
 import { HelpPanel } from "./help-panel";
-import { getRepoRoot, loadChanges, loadDiff } from "./git";
+import { getBranchName, getRepoRoot, loadChanges, loadDiff } from "./git";
 import { ThemePanel } from "./theme-panel";
 import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./theme";
 import type { ChangeItem } from "./types";
@@ -48,6 +48,8 @@ function App() {
   const [toastMessage, setToastMessage] = createSignal<string | null>(null);
   const [ignoreNextCommentInput, setIgnoreNextCommentInput] = createSignal(false);
   const [refreshTick, setRefreshTick] = createSignal(0);
+  const [repoName, setRepoName] = createSignal<string | null>(null);
+  const [branchName, setBranchName] = createSignal<string | null>(null);
   const [diffCursorLine, setDiffCursorLine] = createSignal(0);
   const [isDiffCursorActive, setIsDiffCursorActive] = createSignal(true);
   const [isDiffMultiSelect, setIsDiffMultiSelect] = createSignal(false);
@@ -468,6 +470,14 @@ function App() {
   };
 
   const refreshChanges = () => {
+    const repoRoot = getRepoRoot();
+    if (!repoRoot) {
+      setRepoName(null);
+      setBranchName(null);
+    } else {
+      setRepoName(path.basename(repoRoot));
+      setBranchName(getBranchName());
+    }
     setChanges(loadChanges(setError, { stagedOnly }));
     setRefreshTick((value) => value + 1);
   };
@@ -663,55 +673,68 @@ function App() {
   return (
     <box width="100%" height="100%" flexDirection="column" backgroundColor={colors().crust}>
       <box
-        height={3}
+        height={6}
         width="100%"
         paddingLeft={1}
         paddingRight={1}
         paddingTop={1}
         paddingBottom={1}
-        flexDirection="row"
-        alignItems="center"
+        flexDirection="column"
         backgroundColor={colors().mantle}
       >
-        <box flexGrow={1} />
-        <Show
-          when={!error()}
-          fallback={<text fg={colors().red}>{error()}</text>}
-        >
+        <box flexDirection="row" alignItems="center" height={3}>
+          <box flexDirection="row" alignItems="center" gap={2}>
+            <ascii_font text="DIFFLER" font="tiny" />
+            <text fg={colors().text}>
+              <strong>{repoName() ?? "no repo"}</strong>
+            </text>
+          </box>
+          <box flexGrow={1} />
+        </box>
+        <box flexDirection="row" alignItems="center" height={1} width="100%">
+          <text fg={colors().subtext0}>
+            branch: {branchName() ?? "n/a"} · staged: {stagedOnly ? "on" : "off"} · watch: {watchEnabled ? "on" : "off"}
+          </text>
+          <box flexGrow={1} />
           <Show
-            when={selectedFileName()}
-            fallback={<text fg={colors().subtext0}>No local changes.</text>}
+            when={!error()}
+            fallback={<text fg={colors().red}>{error()}</text>}
           >
-            {(value) => (
-              <box flexDirection="row" alignItems="center" gap={1}>
-                <Show when={hasPrevFile()}>
-                  <text fg={colors().subtext0}>←</text>
-                </Show>
-                <Show when={selectedChange()}>
-                  {(change) => (
-                    <text fg={statusColor(change().status, colors())}>
-                      {statusLabel(change().status)}
-                    </text>
-                  )}
-                </Show>
-                <text fg={colors().text}>{value()}</text>
-                <Show when={diffData()}>
-                  {(data) => (
-                    <box flexDirection="row" gap={1}>
-                      <text fg={colors().green}>+{data().added}</text>
-                      <text fg={colors().red}>-{data().deleted}</text>
-                      <text fg={colors().blue}>~{selectedChange()?.hunks ?? 0}</text>
-                    </box>
-                  )}
-                </Show>
-                <Show when={hasNextFile()}>
-                  <text fg={colors().subtext0}>→</text>
-                </Show>
+            <Show
+              when={selectedFileName()}
+              fallback={<text fg={colors().subtext0}>No local changes.</text>}
+            >
+              {(value) => (
+                <box flexDirection="row" alignItems="center" gap={1}>
+                  <Show when={hasPrevFile()}>
+                    <text fg={colors().subtext0}>←</text>
+                  </Show>
+                  <Show when={selectedChange()}>
+                    {(change) => (
+                      <text fg={statusColor(change().status, colors())}>
+                        {statusLabel(change().status)}
+                      </text>
+                    )}
+                  </Show>
+                  <text fg={colors().text}>{value()}</text>
+                  <Show when={hasNextFile()}>
+                    <text fg={colors().subtext0}>→</text>
+                  </Show>
+                </box>
+              )}
+            </Show>
+          </Show>
+          <box flexGrow={1} />
+          <Show when={!error() && selectedFileName() && diffData()}>
+            {(data) => (
+              <box flexDirection="row" gap={1}>
+                <text fg={colors().green}>+{data().added}</text>
+                <text fg={colors().red}>-{data().deleted}</text>
+                <text fg={colors().blue}>~{selectedChange()?.hunks ?? 0}</text>
               </box>
             )}
           </Show>
-        </Show>
-        <box flexGrow={1} />
+        </box>
       </box>
 
       <box flexGrow={1} height="100%" padding={1} flexDirection="column" backgroundColor={colors().base}>

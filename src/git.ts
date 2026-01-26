@@ -171,6 +171,13 @@ export function getRepoRoot(): string | null {
   return root.length > 0 ? root : null;
 }
 
+export function getBranchName(): string | null {
+  const branchCheck = runGit(["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (branchCheck.exitCode !== 0) return null;
+  const name = branchCheck.stdout.trim();
+  return name.length > 0 ? name : null;
+}
+
 export function loadDiff(change: ChangeItem, options: LoadOptions = {}): DiffData {
   const stagedOnly = options.stagedOnly ?? false;
   const diffParts: string[] = [];
