@@ -355,6 +355,18 @@ function App() {
 
   const diffLines = createMemo(() => buildDiffLines(diffData()?.diff ?? ""));
   const diffLineCount = createMemo(() => diffLines().length);
+  const selectionHighlightRange = createMemo(() => {
+    if (isDiffMultiSelect()) {
+      const min = Math.min(diffSelectionAnchor(), diffSelectionFocus());
+      const max = Math.max(diffSelectionAnchor(), diffSelectionFocus());
+      return { startLine: min, endLine: max };
+    }
+    const selection = selectionInfo();
+    if (selection) return { startLine: selection.startLine, endLine: selection.endLine };
+    const cursor = diffCursorLine();
+    if (isDiffCursorActive() && cursor >= 0) return { startLine: cursor, endLine: cursor };
+    return null;
+  });
   const cursorLineLabel = createMemo(() => {
     const total = diffLineCount();
     const line = diffCursorLine();
@@ -446,6 +458,55 @@ function App() {
       });
     }
     (codeRenderable as any).requestRender?.();
+  };
+  const applyDiffLineHighlight = () => {
+    const renderable = diffRenderable() as any;
+    const side = renderable?.leftSide ?? renderable?.rightSide;
+    if (!side?.setLineColors) return;
+    const lines = diffLines();
+    if (lines.length === 0) return;
+    const currentTheme = theme();
+    const selectionRange = selectionHighlightRange();
+    const selectionColor = currentTheme.palette.sky;
+    const lineColors = new Map<number, { gutter?: string; content?: string }>();
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (line.type === "addition") {
+        lineColors.set(i, {
+          gutter: currentTheme.diff.addedLineNumberBg,
+          content: currentTheme.diff.addedBg,
+        });
+      } else if (line.type === "deletion") {
+        lineColors.set(i, {
+          gutter: currentTheme.diff.removedLineNumberBg,
+          content: currentTheme.diff.removedBg,
+        });
+      } else {
+        lineColors.set(i, {
+          gutter: "transparent",
+          content: currentTheme.diff.contextBg,
+        });
+      }
+    }
+    if (selectionRange) {
+      const min = Math.max(0, Math.min(lines.length - 1, selectionRange.startLine));
+      const max = Math.max(0, Math.min(lines.length - 1, selectionRange.endLine));
+      for (let i = Math.min(min, max); i <= Math.max(min, max); i += 1) {
+        lineColors.set(i, { gutter: selectionColor, content: selectionColor });
+      }
+    }
+    side.setLineColors(lineColors);
+    side.requestRender?.();
+  };
+  const clearDiffSelection = () => {
+    setSelectionInfo(null);
+    setIsDiffCursorActive(true);
+    const codeRenderable = getDiffCodeRenderable();
+    const view = (codeRenderable as any)?.textBufferView;
+    if (view?.resetLocalSelection) {
+      view.resetLocalSelection();
+      (codeRenderable as any)?.requestRender?.();
+    }
   };
   const handleDiffMouseDown = (event: MouseEvent) => {
     if (event.button !== 0) return;
@@ -630,6 +691,15 @@ function App() {
     diffData();
     scheduleDiffCursorInit();
   });
+  createEffect(() => {
+    diffRenderable();
+    diffLines();
+    theme();
+    selectionHighlightRange();
+    queueMicrotask(() => {
+      applyDiffLineHighlight();
+    });
+  });
 
   onMount(() => {
     refreshChanges();
@@ -679,6 +749,7 @@ function App() {
     moveDiffCursor,
     toggleDiffMultiSelect,
     exitDiffMultiSelect,
+    clearDiffSelection,
     fileEntries,
     selectedPath,
   });

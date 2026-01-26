@@ -34,6 +34,7 @@ type AppKeyboardOptions = {
   moveDiffCursor: (delta: number) => void;
   toggleDiffMultiSelect: () => void;
   exitDiffMultiSelect: () => void;
+  clearDiffSelection: () => void;
   fileEntries: Accessor<ChangeItem[]>;
   selectedPath: Accessor<string | null>;
 };
@@ -192,6 +193,7 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       key.preventDefault();
       key.stopPropagation();
       options.exitDiffMultiSelect();
+      options.clearDiffSelection();
       return;
     }
 
