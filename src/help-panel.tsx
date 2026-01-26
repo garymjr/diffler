@@ -8,7 +8,7 @@ type HelpPanelProps = {
 export function HelpPanel(props: HelpPanelProps) {
   const globalLines = [
     "? help | q/esc quit | r refresh",
-    `p focus files | tab toggle focus | t themes (${props.themeName})`,
+    `tab focus files | t themes (${props.themeName})`,
     "j/k/up/down move line",
     "v multi-select (j/k expand)",
     "mouse drag select | c comment selection",

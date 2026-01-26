@@ -121,10 +121,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
         options.closePanel();
         return;
       }
-      if (key.ctrl && key.name === "p") {
-        options.movePanelSelection(-1);
-        return;
-      }
       if (key.ctrl && key.name === "n") {
         options.movePanelSelection(1);
         return;
@@ -157,11 +153,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
 
     if (isHelpKey(key.name, key.shift)) {
       options.setIsHelpPanelOpen(true);
-      return;
-    }
-
-    if (key.name === "p") {
-      options.openPanel();
       return;
     }
 

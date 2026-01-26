@@ -974,7 +974,7 @@ function App() {
         </box>
         <box flexDirection="row" gap={2} alignItems="center">
           <text fg={colors().subtext0}>
-            <strong>p</strong> files
+            <strong>tab</strong> files
           </text>
           <text fg={colors().subtext0}>
             <strong>t</strong> theme
