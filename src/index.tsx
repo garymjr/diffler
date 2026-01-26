@@ -467,7 +467,7 @@ function App() {
     if (lines.length === 0) return;
     const currentTheme = theme();
     const selectionRange = selectionHighlightRange();
-    const selectionColor = currentTheme.palette.sky;
+    const selectionColor = currentTheme.palette.surface2;
     const lineColors = new Map<number, { gutter?: string; content?: string }>();
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
@@ -919,8 +919,8 @@ function App() {
                           removedSignColor={theme().diff.removedSignColor}
                           addedLineNumberBg={theme().diff.addedLineNumberBg}
                           removedLineNumberBg={theme().diff.removedLineNumberBg}
-                          selectionBg={theme().palette.sky}
-                          selectionFg={theme().palette.crust}
+                          selectionBg={theme().palette.surface2}
+                          selectionFg={theme().palette.text}
                           showLineNumbers
                         />
                       </Show>
