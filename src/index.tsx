@@ -738,7 +738,16 @@ function App() {
       </box>
 
       <box flexGrow={1} height="100%" padding={1} flexDirection="column" backgroundColor={colors().base}>
-        <box flexGrow={1} height="100%">
+        <box
+          flexGrow={1}
+          height="100%"
+          border
+          borderStyle="single"
+          borderColor={theme().palette.surface2}
+          title="Diff"
+          titleAlignment="left"
+          padding={1}
+        >
           <scrollbox
             ref={(el) => {
               diffScroll = el;
