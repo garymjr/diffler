@@ -37,6 +37,26 @@ type LoadOptions = {
   stagedOnly?: boolean;
 };
 
+type DiffStat = {
+  added: number;
+  deleted: number;
+};
+
+function calculateDiffStats(diff: string): DiffStat {
+  let added = 0;
+  let deleted = 0;
+  if (!diff) return { added, deleted };
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("+++ ") || line.startsWith("--- ")) continue;
+    if (line.startsWith("+")) {
+      added += 1;
+    } else if (line.startsWith("-")) {
+      deleted += 1;
+    }
+  }
+  return { added, deleted };
+}
+
 function parseStatus(output: string, options: LoadOptions = {}) {
   const stagedOnly = options.stagedOnly ?? false;
   const map = new Map<string, Pick<ChangeItem, "status" | "oldPath">>();
@@ -109,6 +129,7 @@ export function loadChanges(
 
   const diffLookup = new Map<string, ChangeItem>();
   const diffPrimary = new Map<string, ChangeItem>();
+  const diffStats = new Map<string, DiffStat>();
   const diffs = [workingDiff, stagedDiff].filter((diff) => diff.trim().length > 0);
 
   for (const diffText of diffs) {
@@ -128,6 +149,15 @@ export function loadChanges(
           oldPath: file.prevName ?? undefined,
           hunks: file.hunks.length,
         };
+        const diffStat = diffStats.get(file.name) ?? { added: 0, deleted: 0 };
+        for (const hunk of file.hunks) {
+          for (const content of hunk.hunkContent ?? []) {
+            if (content.type === "context") continue;
+            diffStat.added += content.additions.length;
+            diffStat.deleted += content.deletions.length;
+          }
+        }
+        diffStats.set(file.name, diffStat);
         if (!diffPrimary.has(file.name)) {
           diffPrimary.set(file.name, entry);
         }
@@ -147,17 +177,25 @@ export function loadChanges(
     const diffInfo =
       diffLookup.get(filePath) ??
       (statusInfo.oldPath ? diffLookup.get(statusInfo.oldPath) : undefined);
+    const stats = diffStats.get(filePath) ?? (statusInfo.oldPath ? diffStats.get(statusInfo.oldPath) : undefined);
     items.set(filePath, {
       path: filePath,
       status: statusInfo.status,
       oldPath: statusInfo.oldPath ?? diffInfo?.oldPath,
       hunks: diffInfo?.hunks,
+      added: stats?.added,
+      deleted: stats?.deleted,
     });
   }
 
   for (const [filePath, diffInfo] of diffPrimary.entries()) {
     if (items.has(filePath)) continue;
-    items.set(filePath, diffInfo);
+    const stats = diffStats.get(filePath);
+    items.set(filePath, {
+      ...diffInfo,
+      added: stats?.added,
+      deleted: stats?.deleted,
+    });
   }
 
   setError(null);
@@ -206,17 +244,7 @@ export function loadDiff(change: ChangeItem, options: LoadOptions = {}): DiffDat
   const diff = diffParts.join("\n");
   const message = binaryDiffMessage(diff);
   const safeDiff = message ? "" : diff;
-  let added = 0;
-  let deleted = 0;
-
-  for (const line of safeDiff.split("\n")) {
-    if (line.startsWith("+++ ") || line.startsWith("--- ")) continue;
-    if (line.startsWith("+")) {
-      added += 1;
-    } else if (line.startsWith("-")) {
-      deleted += 1;
-    }
-  }
+  const { added, deleted } = calculateDiffStats(safeDiff);
 
   return {
     diff: safeDiff,

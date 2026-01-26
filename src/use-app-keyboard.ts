@@ -242,22 +242,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       return;
     }
 
-    if (key.name !== "h" && key.name !== "l" && key.name !== "left" && key.name !== "right") return;
-
-    const files = options.fileEntries();
-    if (files.length === 0) {
-      return;
-    }
-
-    const currentIndex = Math.max(
-      0,
-      files.findIndex((entry) => entry.path === options.selectedPath())
-    );
-    const isUp = key.name === "h" || key.name === "left";
-    const nextIndex = isUp
-      ? Math.max(0, currentIndex - 1)
-      : Math.min(files.length - 1, currentIndex + 1);
-
-    options.setSelectedPath(files[nextIndex].path);
+    return;
   });
 }

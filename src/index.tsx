@@ -96,11 +96,6 @@ function App() {
     return current ? changeMap().get(current) ?? null : null;
   });
   const hasMultipleFiles = createMemo(() => fileEntries().length > 1);
-  const hasPrevFile = createMemo(() => hasMultipleFiles() && selectedIndex() > 0);
-  const hasNextFile = createMemo(() => {
-    const index = selectedIndex();
-    return hasMultipleFiles() && index >= 0 && index < fileEntries().length - 1;
-  });
   const panelSelected = createMemo(() => {
     const entries = filteredEntries();
     const index = panelIndex();
@@ -812,9 +807,6 @@ function App() {
             >
               {(value) => (
                 <box flexDirection="row" alignItems="center" gap={1}>
-                  <Show when={hasPrevFile()}>
-                    <text fg={colors().subtext0}>←</text>
-                  </Show>
                   <Show when={selectedChange()}>
                     {(change) => (
                       <text fg={statusColor(change().status, colors())}>
@@ -823,22 +815,13 @@ function App() {
                     )}
                   </Show>
                   <text fg={colors().text}>{value()}</text>
-                  <Show when={hasNextFile()}>
-                    <text fg={colors().subtext0}>→</text>
-                  </Show>
                 </box>
               )}
             </Show>
           </Show>
           <box flexGrow={1} />
-          <Show when={!error() && selectedFileName() && diffData()}>
-            {(data) => (
-              <box flexDirection="row" gap={1}>
-                <text fg={colors().green}>+{data().added}</text>
-                <text fg={colors().red}>-{data().deleted}</text>
-                <text fg={colors().blue}>~{selectedChange()?.hunks ?? 0}</text>
-              </box>
-            )}
+          <Show when={!error() && selectedFileName()}>
+            <text fg={colors().subtext0}>comments: {fileCommentCount()}</text>
           </Show>
         </box>
       </box>
@@ -985,7 +968,6 @@ function App() {
           </Show>
           <text fg={colors().subtext0}>{cursorLineLabel()}</text>
           <text fg={colors().subtext0}>{selectionLabel()}</text>
-          <text fg={colors().subtext0}>comments: {fileCommentCount()}</text>
           <Show when={isDiffMultiSelect()}>
             <text fg={colors().yellow}>multi-select</text>
           </Show>

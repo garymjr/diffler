@@ -136,8 +136,12 @@ describe("git", () => {
     const byPath = new Map(items.map((item) => [item.path, item]));
     expect(byPath.get("src/a.ts")?.status).toBe("untracked");
     expect(byPath.get("src/a.ts")?.hunks).toBe(2);
+    expect(byPath.get("src/a.ts")?.added).toBe(2);
+    expect(byPath.get("src/a.ts")?.deleted).toBe(1);
     expect(byPath.get("src/b.ts")?.status).toBe("modified");
     expect(byPath.get("src/b.ts")?.hunks).toBe(1);
+    expect(byPath.get("src/b.ts")?.added).toBe(1);
+    expect(byPath.get("src/b.ts")?.deleted).toBe(0);
   });
 
   it("loadChanges parses unstaged status entries with leading space", () => {

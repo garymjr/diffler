@@ -9,7 +9,7 @@ export function HelpPanel(props: HelpPanelProps) {
   const globalLines = [
     "? help | q/esc quit | r refresh",
     `p focus files | tab toggle focus | t themes (${props.themeName})`,
-    "h/l/left/right file | j/k/up/down move line",
+    "j/k/up/down move line",
     "v multi-select (j/k expand)",
     "mouse drag select | c comment selection",
     "y copy comments (file)",

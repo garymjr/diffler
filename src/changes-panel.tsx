@@ -32,9 +32,9 @@ export function ChangesPanel(props: ChangesPanelProps) {
 
   return (
     <box
-      width="28%"
-      minWidth={26}
-      maxWidth={44}
+      width="32%"
+      minWidth={30}
+      maxWidth={52}
       height="100%"
       border
       borderStyle="single"
@@ -75,21 +75,41 @@ export function ChangesPanel(props: ChangesPanelProps) {
               const isSelected = () => index() === props.selectedIndex;
               const selectedBg = () => (isSelected() ? props.colors.blue : "transparent");
               const selectedFg = () => (isSelected() ? props.colors.base : props.colors.text);
+              const added = () => entry.added ?? 0;
+              const deleted = () => entry.deleted ?? 0;
+              const hunks = () => entry.hunks ?? 0;
+              const addedLabel = () => `+${added()}`.padStart(5, " ");
+              const deletedLabel = () => `-${deleted()}`.padStart(5, " ");
+              const hunksLabel = () => `~${hunks()}`.padStart(4, " ");
               return (
                 <box
                   paddingLeft={1}
                   paddingRight={1}
                   backgroundColor={selectedBg()}
+                  height={1}
                 >
-                  <box flexDirection="row" gap={1}>
+                  <box flexDirection="row" gap={1} alignItems="center" flexWrap="no-wrap" height={1}>
                     <text
                       fg={isSelected() ? props.colors.base : props.statusColor(entry.status)}
                     >
                       {props.statusLabel(entry.status)}
                     </text>
-                    <text fg={selectedFg()}>
-                      {entry.path}
-                    </text>
+                    <box flexGrow={1} flexShrink={1} minWidth={0}>
+                      <text fg={selectedFg()} wrapMode="none" truncate>
+                        {entry.path}
+                      </text>
+                    </box>
+                    <box flexDirection="row" gap={0} alignItems="center" flexShrink={0}>
+                      <text fg={isSelected() ? props.colors.base : props.colors.green}>
+                        {addedLabel()}
+                      </text>
+                      <text fg={isSelected() ? props.colors.base : props.colors.red}>
+                        {deletedLabel()}
+                      </text>
+                      <text fg={isSelected() ? props.colors.base : props.colors.blue}>
+                        {hunksLabel()}
+                      </text>
+                    </box>
                   </box>
                 </box>
               );

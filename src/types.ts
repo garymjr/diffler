@@ -12,6 +12,8 @@ export type ChangeItem = {
   status: ChangeStatus;
   oldPath?: string;
   hunks?: number;
+  added?: number;
+  deleted?: number;
 };
 
 export type DiffData = {
