@@ -774,58 +774,53 @@ function App() {
   return (
     <box width="100%" height="100%" flexDirection="column" backgroundColor={colors().base}>
       <box
-        height={6}
+        height={3}
         width="100%"
-        paddingLeft={1}
-        paddingRight={1}
-        paddingTop={1}
-        paddingBottom={1}
-        flexDirection="column"
+        paddingLeft={2}
+        paddingRight={2}
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="center"
         backgroundColor={colors().mantle}
       >
-        <box flexDirection="row" alignItems="center" height={3}>
-          <box flexDirection="row" alignItems="center" gap={2}>
-            <ascii_font text="DIFFLER" font="tiny" />
-            <text fg={colors().text}>
-              <strong>{repoName() ?? "no repo"}</strong>
-            </text>
-          </box>
-          <box flexGrow={1} />
-        </box>
-        <box flexDirection="row" alignItems="center" height={1} width="100%">
-          <text fg={colors().subtext0}>
-            branch: {branchName() ?? "n/a"} · staged: {stagedOnly ? "on" : "off"} · watch: {watchEnabled ? "on" : "off"}
-          </text>
-          <box flexGrow={1} />
+        <Show
+          when={!error()}
+          fallback={<text fg={colors().red}>{error()}</text>}
+        >
           <Show
-            when={!error()}
-            fallback={<text fg={colors().red}>{error()}</text>}
+            when={selectedFileName()}
+            fallback={
+              <text fg={colors().subtext0}>Working tree clean · make a change to view a diff.</text>
+            }
           >
-            <Show
-              when={selectedFileName()}
-              fallback={
-                <text fg={colors().subtext0}>Working tree clean · make a change to view a diff.</text>
-              }
-            >
-              {(value) => (
-                <box flexDirection="row" alignItems="center" gap={1}>
-                  <Show when={selectedChange()}>
-                    {(change) => (
-                      <text fg={statusColor(change().status, colors())}>
-                        {statusLabel(change().status)}
-                      </text>
-                    )}
-                  </Show>
-                  <text fg={colors().text}>{value()}</text>
-                </box>
-              )}
-            </Show>
+            {(value) => (
+              <box flexDirection="row" alignItems="center" gap={1}>
+                <Show when={selectedChange()}>
+                  {(change) => (
+                    <text fg={statusColor(change().status, colors())}>
+                      {statusLabel(change().status)}
+                    </text>
+                  )}
+                </Show>
+                <text fg={colors().text}>{value()}</text>
+                <Show when={selectedChange()}>
+                  {(change) => {
+                    const added = change().added ?? 0;
+                    const deleted = change().deleted ?? 0;
+                    const hunks = change().hunks ?? 0;
+                    return (
+                      <box flexDirection="row" alignItems="center" gap={1}>
+                        <text fg={colors().green}>+{added}</text>
+                        <text fg={colors().red}>-{deleted}</text>
+                        <text fg={colors().blue}>~{hunks}</text>
+                      </box>
+                    );
+                  }}
+                </Show>
+              </box>
+            )}
           </Show>
-          <box flexGrow={1} />
-          <Show when={!error() && selectedFileName()}>
-            <text fg={colors().subtext0}>comments: {fileCommentCount()}</text>
-          </Show>
-        </box>
+        </Show>
       </box>
 
       <box flexGrow={1} height="100%" padding={1} flexDirection="row" gap={1} backgroundColor={colors().base}>
