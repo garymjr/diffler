@@ -83,23 +83,43 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
 
     if (options.isPanelOpen()) {
       if (options.isPanelSearchActive()) {
-        if (key.name === "tab") {
-          options.setIsPanelSearchActive(false);
+        if (key.name === "p") {
           options.closePanel();
           return;
         }
         if (key.name === "escape") {
-          options.setPanelQuery("");
-          options.setIsPanelSearchActive(false);
+          options.closePanel();
           return;
         }
         if (key.name === "enter" || key.name === "return") {
-          options.setIsPanelSearchActive(false);
+          const selected = options.panelSelected();
+          if (selected) {
+            options.setSelectedPath(selected.path);
+          }
+          options.closePanel();
+          return;
+        }
+        if (key.ctrl && key.name === "n") {
+          options.movePanelSelection(1);
+          return;
+        }
+        if (key.ctrl && key.name === "p") {
+          options.movePanelSelection(-1);
+          return;
+        }
+        if (key.name === "up" || key.sequence === "\u001b[A") {
+          options.movePanelSelection(-1);
+          return;
+        }
+        if (key.name === "down" || key.sequence === "\u001b[B") {
+          options.movePanelSelection(1);
           return;
         }
         return;
       }
-      if (key.name === "tab") {
+      if (key.name === "p") {
+        key.preventDefault();
+        key.stopPropagation();
         options.closePanel();
         return;
       }
@@ -107,30 +127,12 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
         options.closePanel();
         return;
       }
-      if (key.name === "/") {
-        key.preventDefault();
-        key.stopPropagation();
-        options.setIsPanelSearchActive(true);
-        return;
-      }
-      if (key.name === "enter" || key.name === "return") {
-        const selected = options.panelSelected();
-        if (selected) {
-          options.setSelectedPath(selected.path);
-        }
-        options.closePanel();
-        return;
-      }
       if (key.ctrl && key.name === "n") {
         options.movePanelSelection(1);
         return;
       }
-      if (key.name === "k") {
+      if (key.ctrl && key.name === "p") {
         options.movePanelSelection(-1);
-        return;
-      }
-      if (key.name === "j") {
-        options.movePanelSelection(1);
         return;
       }
       if (key.name === "up" || key.sequence === "\u001b[A") {
@@ -156,12 +158,10 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       return;
     }
 
-    if (key.name === "tab") {
-      if (options.isPanelOpen()) {
-        options.closePanel();
-      } else {
-        options.openPanel();
-      }
+    if (key.name === "p") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.openPanel();
       return;
     }
 

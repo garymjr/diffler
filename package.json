@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "build": "bun run scripts/build.ts",
-    "dev": "bun run --watch src/index.tsx",
+    "dev": "bun run --preload ./node_modules/@opentui/solid/scripts/preload.ts --watch src/index.tsx",
+    "start": "bun run --preload ./node_modules/@opentui/solid/scripts/preload.ts src/index.tsx",
     "test": "bun test"
   },
   "devDependencies": {

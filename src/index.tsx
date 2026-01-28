@@ -96,7 +96,6 @@ function App() {
     const current = selectedPath();
     return current ? changeMap().get(current) ?? null : null;
   });
-  const hasMultipleFiles = createMemo(() => fileEntries().length > 1);
   const panelSelected = createMemo(() => {
     const entries = filteredEntries();
     const index = panelIndex();
@@ -108,7 +107,7 @@ function App() {
     const index = selectedIndex();
     setPanelIndex(index >= 0 ? index : 0);
     setIsPanelOpen(true);
-    setIsPanelSearchActive(false);
+    setIsPanelSearchActive(true);
     setIsThemePanelOpen(false);
     setIsHelpPanelOpen(false);
   };
@@ -830,25 +829,6 @@ function App() {
       </box>
 
       <box flexGrow={1} height="100%" padding={1} flexDirection="row" gap={1} backgroundColor={colors().base}>
-        <ChangesPanel
-          isOpen={isPanelOpen()}
-          isSearchActive={isPanelSearchActive()}
-          query={panelQuery()}
-          entries={filteredEntries()}
-          selectedIndex={panelIndex()}
-          colors={colors()}
-          statusLabel={statusLabel}
-          statusColor={(status) => statusColor(status, colors())}
-          onQueryChange={setPanelQuery}
-          onScrollRef={(el) => {
-            panelScroll = el;
-            if (panelScroll) {
-              const index = panelIndex();
-              if (index >= 0) panelScroll.scrollTo({ x: 0, y: index });
-              lastPanelIndex = index;
-            }
-          }}
-        />
         <box
           flexGrow={1}
           height="100%"
@@ -930,6 +910,25 @@ function App() {
         </box>
       </box>
 
+      <ChangesPanel
+        isOpen={isPanelOpen()}
+        isSearchActive={isPanelSearchActive()}
+        query={panelQuery()}
+        entries={filteredEntries()}
+        selectedIndex={panelIndex()}
+        colors={colors()}
+        statusLabel={statusLabel}
+        statusColor={(status) => statusColor(status, colors())}
+        onQueryChange={setPanelQuery}
+        onScrollRef={(el) => {
+          panelScroll = el;
+          if (panelScroll) {
+            const index = panelIndex();
+            if (index >= 0) panelScroll.scrollTo({ x: 0, y: index });
+            lastPanelIndex = index;
+          }
+        }}
+      />
       <Show when={isHelpPanelOpen()}>
         <HelpPanel colors={colors()} themeName={themeName()} />
       </Show>
@@ -986,7 +985,7 @@ function App() {
         </box>
         <box flexDirection="row" gap={2} alignItems="center">
           <text fg={colors().subtext0}>
-            <strong>tab</strong> files
+            <strong>p</strong> files
           </text>
           <text fg={colors().subtext0}>
             <strong>t</strong> theme

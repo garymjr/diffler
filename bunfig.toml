@@ -1,1 +1,1 @@
-preload = ["@opentui/solid/preload"]
+# Intentionally empty: avoid preloading when running compiled binaries from repo.
