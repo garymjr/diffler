@@ -53,7 +53,7 @@ export function ChangesPanel(props: ChangesPanelProps) {
           padding={1}
           flexDirection="column"
           gap={1}
-          backgroundColor={props.colors.mantle}
+          backgroundColor={props.colors.crust}
         >
           <box flexDirection="row" alignItems="center" gap={1}>
             <input
