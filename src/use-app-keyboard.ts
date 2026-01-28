@@ -31,10 +31,9 @@ type AppKeyboardOptions = {
   openCommentPanel: () => void;
   copyAllComments: () => void;
   refreshChanges: () => void;
-  moveDiffCursor: (delta: number) => void;
-  toggleDiffMultiSelect: () => void;
-  exitDiffMultiSelect: () => void;
+  moveDiffHunk: (delta: number) => void;
   clearDiffSelection: () => void;
+  moveFileSelection: (delta: number) => void;
   fileEntries: Accessor<ChangeItem[]>;
   selectedPath: Accessor<string | null>;
 };
@@ -183,7 +182,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     if (key.name === "escape") {
       key.preventDefault();
       key.stopPropagation();
-      options.exitDiffMultiSelect();
       options.clearDiffSelection();
       return;
     }
@@ -198,38 +196,45 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       return;
     }
 
-    if (key.name === "v") {
-      key.preventDefault();
-      key.stopPropagation();
-      options.toggleDiffMultiSelect();
-      return;
-    }
-
     if (key.name === "j") {
       key.preventDefault();
       key.stopPropagation();
-      options.moveDiffCursor(1);
+      options.moveDiffHunk(1);
       return;
     }
 
     if (key.name === "k") {
       key.preventDefault();
       key.stopPropagation();
-      options.moveDiffCursor(-1);
+      options.moveDiffHunk(-1);
       return;
     }
 
     if (key.name === "up" || key.sequence === "\u001b[A") {
       key.preventDefault();
       key.stopPropagation();
-      options.moveDiffCursor(-1);
+      options.moveDiffHunk(-1);
       return;
     }
 
     if (key.name === "down" || key.sequence === "\u001b[B") {
       key.preventDefault();
       key.stopPropagation();
-      options.moveDiffCursor(1);
+      options.moveDiffHunk(1);
+      return;
+    }
+
+    if (key.name === "left" || key.name === "h") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.moveFileSelection(-1);
+      return;
+    }
+
+    if (key.name === "right" || key.name === "l") {
+      key.preventDefault();
+      key.stopPropagation();
+      options.moveFileSelection(1);
       return;
     }
 

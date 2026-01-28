@@ -9,6 +9,7 @@ export type DiffLine = {
   oldLine?: number;
   newLine?: number;
   type: DiffLineType;
+  isHunkStart?: boolean;
 };
 
 export type SelectionInfo = {
@@ -50,11 +51,19 @@ export function buildDiffLines(diff: string): DiffLine[] {
       for (const hunk of file.hunks) {
         let oldLine = hunk.deletionStart;
         let newLine = hunk.additionStart;
+        let isFirstLine = true;
 
         for (const group of hunk.hunkContent ?? []) {
           if (group.type === "context") {
             for (const line of group.lines) {
-              lines.push({ content: line, oldLine, newLine, type: "context" });
+              lines.push({
+                content: line,
+                oldLine,
+                newLine,
+                type: "context",
+                isHunkStart: isFirstLine,
+              });
+              isFirstLine = false;
               oldLine += 1;
               newLine += 1;
             }
@@ -62,11 +71,13 @@ export function buildDiffLines(diff: string): DiffLine[] {
           }
 
           for (const line of group.deletions) {
-            lines.push({ content: line, oldLine, type: "deletion" });
+            lines.push({ content: line, oldLine, type: "deletion", isHunkStart: isFirstLine });
+            isFirstLine = false;
             oldLine += 1;
           }
           for (const line of group.additions) {
-            lines.push({ content: line, newLine, type: "addition" });
+            lines.push({ content: line, newLine, type: "addition", isHunkStart: isFirstLine });
+            isFirstLine = false;
             newLine += 1;
           }
         }
