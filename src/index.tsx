@@ -432,6 +432,24 @@ function App() {
     }
     return indices;
   });
+  const headerStats = createMemo(() => {
+    const change = selectedChange();
+    const diff = diffData();
+    const text = diff?.diff ?? "";
+    let hunks = change?.hunks ?? 0;
+    if (text.trim()) {
+      const normalized = text.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "");
+      hunks = 0;
+      for (const line of normalized.split("\n")) {
+        if (line.startsWith("@@")) hunks += 1;
+      }
+    }
+    return {
+      added: change?.added ?? diff?.added ?? 0,
+      deleted: change?.deleted ?? diff?.deleted ?? 0,
+      hunks,
+    };
+  });
   const currentHunkStart = createMemo(() => {
     const starts = hunkStartLines();
     if (starts.length === 0) return -1;
@@ -830,15 +848,13 @@ function App() {
                 </Show>
                 <text fg={colors().text.primary}>{value()}</text>
                 <Show when={selectedChange()}>
-                  {(change) => {
-                    const added = change().added ?? 0;
-                    const deleted = change().deleted ?? 0;
-                    const hunks = change().hunks ?? 0;
+                  {() => {
+                    const stats = headerStats();
                     return (
                       <box flexDirection="row" alignItems="center" gap={1}>
-                        <text fg={colors().accent.green}>+{added}</text>
-                        <text fg={colors().accent.red}>-{deleted}</text>
-                        <text fg={colors().accent.blue}>~{hunks}</text>
+                        <text fg={colors().accent.green}>+{stats.added}</text>
+                        <text fg={colors().accent.red}>-{stats.deleted}</text>
+                        <text fg={colors().accent.blue}>~{stats.hunks}</text>
                       </box>
                     );
                   }}

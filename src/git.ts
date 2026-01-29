@@ -42,11 +42,28 @@ type DiffStat = {
   deleted: number;
 };
 
+function parseNumstat(output: string): DiffStat {
+  let added = 0;
+  let deleted = 0;
+  if (!output) return { added, deleted };
+  const lines = output.split("\n").filter(Boolean);
+  for (const line of lines) {
+    const [addedRaw, deletedRaw] = line.split("\t");
+    if (!addedRaw || !deletedRaw) continue;
+    const addedValue = addedRaw === "-" ? 0 : Number.parseInt(addedRaw, 10);
+    const deletedValue = deletedRaw === "-" ? 0 : Number.parseInt(deletedRaw, 10);
+    if (Number.isFinite(addedValue)) added += addedValue;
+    if (Number.isFinite(deletedValue)) deleted += deletedValue;
+  }
+  return { added, deleted };
+}
+
 function calculateDiffStats(diff: string): DiffStat {
   let added = 0;
   let deleted = 0;
   if (!diff) return { added, deleted };
-  for (const line of diff.split("\n")) {
+  const normalized = diff.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "");
+  for (const line of normalized.split("\n")) {
     if (line.startsWith("+++ ") || line.startsWith("--- ")) continue;
     if (line.startsWith("+")) {
       added += 1;
@@ -244,7 +261,23 @@ export function loadDiff(change: ChangeItem, options: LoadOptions = {}): DiffDat
   const diff = diffParts.join("\n");
   const message = binaryDiffMessage(diff);
   const safeDiff = message ? "" : diff;
-  const { added, deleted } = calculateDiffStats(safeDiff);
+  let added = 0;
+  let deleted = 0;
+  if (change.status === "untracked") {
+    ({ added, deleted } = calculateDiffStats(safeDiff));
+  } else {
+    const stats = parseNumstat(
+      [
+        stagedOnly ? "" : runGit(["diff", "--numstat", "--", change.path]).stdout,
+        runGit(["diff", "--cached", "--numstat", "--", change.path]).stdout,
+      ].join("\n")
+    );
+    added = stats.added;
+    deleted = stats.deleted;
+    if (added === 0 && deleted === 0 && safeDiff.trim().length > 0) {
+      ({ added, deleted } = calculateDiffStats(safeDiff));
+    }
+  }
 
   return {
     diff: safeDiff,
