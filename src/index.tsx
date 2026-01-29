@@ -865,13 +865,7 @@ function App() {
           height="100%"
           border
           borderStyle="single"
-          borderColor={
-            !isPanelOpen() && !isThemePanelOpen() && !isHelpPanelOpen() && !isCommentPanelOpen()
-              ? colors().accent.blue
-              : colors().panel.border
-          }
-          title="Diff"
-          titleAlignment="left"
+          borderColor={colors().panel.border}
           padding={1}
         >
           <scrollbox
