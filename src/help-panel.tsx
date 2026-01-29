@@ -9,8 +9,8 @@ export function HelpPanel(props: HelpPanelProps) {
   const globalLines = [
     "? help | q/esc quit | r refresh",
     `p files | t themes (${props.themeName})`,
-    "j/k/up/down jump hunk | v multi-select",
-    "mouse drag select | c comment | y copy comments",
+    "j/k/up/down jump hunk",
+    "c comment | y copy comments",
   ];
 
   const panelLines = [

@@ -90,16 +90,30 @@ bun dev -- --watch
 
 Global:
 
-- `q` / `esc`: quit
+- `q`: quit
+- `?`: help
 - `r`: refresh
-- `p`: file picker
-- `h` / `l` / `←` / `→`: previous/next file
-- `j` / `k`: scroll diff
+- `p`: files panel
+- `t`: themes panel
+- `c`: comment on selection
+- `y`: copy file comments
+- `esc`: clear diff selection / close panels
 
-File picker:
+Diff:
+
+- `j` / `k` / `↑` / `↓`: jump hunk
+- `h` / `l` / `←` / `→`: previous/next file
+
+Files/Themes panel:
 
 - Type to filter
-- `enter`: open file
+- `enter`: select
 - `esc`: close
-- `j` / `k` / `↑` / `↓`: move
-- `ctrl+p` / `ctrl+n`: move
+- `ctrl+n` / `ctrl+p` / `↑` / `↓`: move
+
+Comment panel:
+
+- `enter`: save
+- `ctrl+j` / `alt+enter`: newline
+- `ctrl+u` / `ctrl+d`: scroll hunk
+- `esc`: cancel
