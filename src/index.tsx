@@ -8,7 +8,7 @@ import { CommentPanel } from "./comment-panel";
 import { HelpPanel } from "./help-panel";
 import { getBranchName, getRepoRoot, loadChanges, loadDiff } from "./git";
 import { ThemePanel } from "./theme-panel";
-import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./theme";
+import { defaultThemeId, themeById, themeOrder, type Theme, type ThemeId } from "./theme";
 import { EmptyState } from "./empty-state";
 import type { ChangeItem } from "./types";
 import { copyToClipboard } from "./clipboard";
@@ -36,7 +36,7 @@ function App() {
   const [panelQuery, setPanelQuery] = createSignal("");
   const [panelIndex, setPanelIndex] = createSignal(0);
   const [isPanelSearchActive, setIsPanelSearchActive] = createSignal(false);
-  const [themeName, setThemeName] = createSignal<ThemeName>("mocha");
+  const [themeId, setThemeId] = createSignal<ThemeId>(defaultThemeId);
   const [isThemePanelOpen, setIsThemePanelOpen] = createSignal(false);
   const [themeIndex, setThemeIndex] = createSignal(0);
   const [themeQuery, setThemeQuery] = createSignal("");
@@ -55,9 +55,9 @@ function App() {
   const [branchName, setBranchName] = createSignal<string | null>(null);
   const [diffCursorLine, setDiffCursorLine] = createSignal(0);
   const [isDiffCursorActive, setIsDiffCursorActive] = createSignal(true);
-  const theme = createMemo(() => catppuccinThemes[themeName()]);
+  const theme = createMemo(() => themeById[themeId()]);
   const colors = createMemo(() => theme().colors);
-  const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
+  const themeEntries = createMemo<Theme[]>(() => themeOrder.map((id) => themeById[id]));
   let diffScroll: ScrollBoxRenderable | undefined;
   let panelScroll: ScrollBoxRenderable | undefined;
   let themePanelScroll: ScrollBoxRenderable | undefined;
@@ -136,7 +136,7 @@ function App() {
   };
   const openThemePanel = () => {
     setIsPanelOpen(false);
-    setThemeIndex(Math.max(0, themeOrder.indexOf(themeName())));
+    setThemeIndex(Math.max(0, themeOrder.indexOf(themeId())));
     setThemeQuery("");
     setIsThemePanelOpen(true);
     setIsThemeSearchActive(true);
@@ -146,7 +146,7 @@ function App() {
     setIsThemePanelOpen(false);
     setIsThemeSearchActive(false);
     setThemeQuery("");
-    setThemeIndex(Math.max(0, themeOrder.indexOf(themeName())));
+    setThemeIndex(Math.max(0, themeOrder.indexOf(themeId())));
   };
 
   const setStatus = (message: string) => {
@@ -486,18 +486,18 @@ function App() {
       const line = lines[i];
       if (line.type === "addition") {
         lineColors.set(i, {
-          gutter: currentTheme.diff.addedLineNumberBg,
-          content: currentTheme.diff.addedBg,
+          gutter: currentTheme.diff.added.line,
+          content: currentTheme.diff.added.bg,
         });
       } else if (line.type === "deletion") {
         lineColors.set(i, {
-          gutter: currentTheme.diff.removedLineNumberBg,
-          content: currentTheme.diff.removedBg,
+          gutter: currentTheme.diff.removed.line,
+          content: currentTheme.diff.removed.bg,
         });
       } else {
         lineColors.set(i, {
           gutter: "transparent",
-          content: currentTheme.diff.contextBg,
+          content: currentTheme.diff.context.bg,
         });
       }
     }
@@ -512,7 +512,7 @@ function App() {
       const end = Math.max(range.start, Math.min(lines.length - 1, range.end));
       for (let i = range.start; i <= end; i += 1) {
         const existing = nextSigns.get(i) ?? {};
-        nextSigns.set(i, { ...existing, before: "▌", beforeColor: colors().blue });
+        nextSigns.set(i, { ...existing, before: "▌", beforeColor: colors().accent.blue });
       }
     }
     if (typeof side.setLineSigns === "function") {
@@ -737,7 +737,7 @@ function App() {
     isThemePanelOpen,
     closeThemePanel,
     themeSelected,
-    setThemeName,
+    setThemeId,
     moveThemeSelection,
     isThemeSearchActive,
     isPanelOpen,
@@ -781,7 +781,12 @@ function App() {
   });
 
   return (
-    <box width="100%" height="100%" flexDirection="column" backgroundColor={colors().base}>
+    <box
+      width="100%"
+      height="100%"
+      flexDirection="column"
+      backgroundColor={colors().background.base}
+    >
       <box
         height={3}
         width="100%"
@@ -790,22 +795,22 @@ function App() {
         flexDirection="row"
         alignItems="center"
         justifyContent="center"
-        backgroundColor={colors().mantle}
+        backgroundColor={colors().panel.base}
       >
         <Show
           when={!error()}
-          fallback={<text fg={colors().red}>{error()}</text>}
+          fallback={<text fg={colors().accent.red}>{error()}</text>}
         >
           <Show
             when={selectedFileName()}
             fallback={
-              <text fg={colors().subtext0}>Working tree clean · make a change to view a diff.</text>
+              <text fg={colors().text.muted}>Working tree clean · make a change to view a diff.</text>
             }
           >
             {(value) => (
               <box flexDirection="row" alignItems="center" gap={1}>
                 <Show when={hasPrevFile()}>
-                  <text fg={colors().subtext0}>←</text>
+                  <text fg={colors().text.muted}>←</text>
                 </Show>
                 <Show when={selectedChange()}>
                   {(change) => (
@@ -814,7 +819,7 @@ function App() {
                     </text>
                   )}
                 </Show>
-                <text fg={colors().text}>{value()}</text>
+                <text fg={colors().text.primary}>{value()}</text>
                 <Show when={selectedChange()}>
                   {(change) => {
                     const added = change().added ?? 0;
@@ -822,15 +827,15 @@ function App() {
                     const hunks = change().hunks ?? 0;
                     return (
                       <box flexDirection="row" alignItems="center" gap={1}>
-                        <text fg={colors().green}>+{added}</text>
-                        <text fg={colors().red}>-{deleted}</text>
-                        <text fg={colors().blue}>~{hunks}</text>
+                        <text fg={colors().accent.green}>+{added}</text>
+                        <text fg={colors().accent.red}>-{deleted}</text>
+                        <text fg={colors().accent.blue}>~{hunks}</text>
                       </box>
                     );
                   }}
                 </Show>
                 <Show when={hasNextFile()}>
-                  <text fg={colors().subtext0}>→</text>
+                  <text fg={colors().text.muted}>→</text>
                 </Show>
               </box>
             )}
@@ -838,7 +843,14 @@ function App() {
         </Show>
       </box>
 
-      <box flexGrow={1} height="100%" padding={1} flexDirection="row" gap={1} backgroundColor={colors().base}>
+      <box
+        flexGrow={1}
+        height="100%"
+        padding={1}
+        flexDirection="row"
+        gap={1}
+        backgroundColor={colors().background.base}
+      >
         <box
           flexGrow={1}
           height="100%"
@@ -846,8 +858,8 @@ function App() {
           borderStyle="single"
           borderColor={
             !isPanelOpen() && !isThemePanelOpen() && !isHelpPanelOpen() && !isCommentPanelOpen()
-              ? colors().blue
-              : theme().palette.surface2
+              ? colors().accent.blue
+              : colors().panel.border
           }
           title="Diff"
           titleAlignment="left"
@@ -875,7 +887,7 @@ function App() {
             >
               <Show
                 when={diffData()}
-                fallback={<text fg={colors().subtext0}>Loading diff…</text>}
+                fallback={<text fg={colors().text.muted}>Loading diff…</text>}
               >
                 {(data) => (
                   <Show
@@ -884,7 +896,7 @@ function App() {
                       <Show
                         when={data().diff.trim().length > 0}
                         fallback={
-                          <text fg={colors().subtext0}>No diff for this file. Try another file.</text>
+                          <text fg={colors().text.muted}>No diff for this file. Try another file.</text>
                         }
                       >
                         <diff
@@ -897,21 +909,21 @@ function App() {
                           view="unified"
                           filetype={data().language}
                           syntaxStyle={theme().syntaxStyle}
-                          addedBg={theme().diff.addedBg}
-                          removedBg={theme().diff.removedBg}
-                          contextBg={theme().diff.contextBg}
-                          addedSignColor={theme().diff.addedSignColor}
-                          removedSignColor={theme().diff.removedSignColor}
-                          addedLineNumberBg={theme().diff.addedLineNumberBg}
-                          removedLineNumberBg={theme().diff.removedLineNumberBg}
-                          selectionBg={theme().palette.surface2}
-                          selectionFg={theme().palette.text}
+                          addedBg={theme().diff.added.bg}
+                          removedBg={theme().diff.removed.bg}
+                          contextBg={theme().diff.context.bg}
+                          addedSignColor={theme().diff.added.sign}
+                          removedSignColor={theme().diff.removed.sign}
+                          addedLineNumberBg={theme().diff.added.line}
+                          removedLineNumberBg={theme().diff.removed.line}
+                          selectionBg={theme().colors.selection.bg}
+                          selectionFg={theme().colors.selection.fg}
                           showLineNumbers
                         />
                       </Show>
                     )}
                   >
-                    <text fg={colors().subtext0}>{data().message}</text>
+                    <text fg={colors().text.muted}>{data().message}</text>
                   </Show>
                 )}
               </Show>
@@ -940,7 +952,7 @@ function App() {
         }}
       />
       <Show when={isHelpPanelOpen()}>
-        <HelpPanel colors={colors()} themeName={themeName()} />
+        <HelpPanel colors={colors()} themeName={theme().name} />
       </Show>
       <Show when={toastMessage()}>
         {(message) => (
@@ -954,11 +966,11 @@ function App() {
             paddingBottom={1}
             border
             borderStyle="single"
-            borderColor={colors().surface2}
-            backgroundColor={colors().mantle}
+            borderColor={colors().panel.border}
+            backgroundColor={colors().panel.base}
             zIndex={5}
           >
-            <text fg={colors().text}>{message()}</text>
+            <text fg={colors().text.primary}>{message()}</text>
           </box>
         )}
       </Show>
@@ -971,15 +983,15 @@ function App() {
         paddingBottom={1}
         flexDirection="row"
         alignItems="center"
-        backgroundColor={colors().mantle}
+        backgroundColor={colors().panel.base}
       >
         <box flexGrow={1} flexDirection="row" gap={2} alignItems="center">
           <Show when={statusMessage()}>
-            {(message) => <text fg={colors().subtext0}>{message()}</text>}
+            {(message) => <text fg={colors().text.muted}>{message()}</text>}
           </Show>
           <Show
             when={selectedChange()}
-            fallback={<text fg={colors().subtext0}>status: n/a</text>}
+            fallback={<text fg={colors().text.muted}>status: n/a</text>}
           >
             {(change) => (
               <text fg={statusColor(change().status, colors())}>
@@ -989,25 +1001,25 @@ function App() {
           </Show>
         </box>
         <box flexDirection="row" gap={2} alignItems="center">
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>p</strong> files
           </text>
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>t</strong> theme
           </text>
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>c</strong> comment
           </text>
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>y</strong> copy
           </text>
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>r</strong> refresh
           </text>
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>q</strong> quit
           </text>
-          <text fg={colors().subtext0}>
+          <text fg={colors().text.muted}>
             <strong>?</strong> help
           </text>
         </box>

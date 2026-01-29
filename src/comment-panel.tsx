@@ -48,24 +48,24 @@ export function CommentPanel(props: CommentPanelProps) {
           height="60%"
           border
           borderStyle="rounded"
-          borderColor={props.colors.surface2}
+          borderColor={props.colors.panel.border}
           padding={1}
           flexDirection="column"
           gap={1}
-          backgroundColor={props.colors.surface1}
+          backgroundColor={props.colors.panel.base}
         >
-          <text fg={props.colors.text}>Add comment</text>
+          <text fg={props.colors.text.primary}>Add comment</text>
           <box flexDirection="column" gap={0}>
-            <text fg={props.colors.subtext0}>{props.selection?.filePath ?? "No hunk selected"}</text>
+            <text fg={props.colors.text.muted}>{props.selection?.filePath ?? "No selection"}</text>
             <Show when={props.selection?.lineLabel}>
-              {(label) => <text fg={props.colors.subtext0}>Lines: {label()}</text>}
+              {(label) => <text fg={props.colors.text.muted}>Lines: {label()}</text>}
             </Show>
           </box>
-          <box border borderStyle="rounded" padding={1} backgroundColor={props.colors.surface0}>
+          <box border borderStyle="rounded" padding={1} backgroundColor={props.colors.panel.muted}>
             <scrollbox height={6}>
               <Show
                 when={props.selection?.text}
-                fallback={<text fg={props.colors.subtext0}>No hunk selected.</text>}
+                fallback={<text fg={props.colors.text.muted}>Select lines in the diff.</text>}
               >
                 {(text) => <text selectable>{text()}</text>}
               </Show>
@@ -83,12 +83,12 @@ export function CommentPanel(props: CommentPanelProps) {
             focused={props.isFocused}
             keyBindings={commentKeyBindings}
             onSubmit={props.onSubmit}
-            backgroundColor={props.colors.surface0}
-            textColor={props.colors.text}
-            placeholderColor={props.colors.subtext0}
-            cursorColor={props.colors.blue}
+            backgroundColor={props.colors.panel.muted}
+            textColor={props.colors.text.primary}
+            placeholderColor={props.colors.text.muted}
+            cursorColor={props.colors.accent.blue}
           />
-          <text fg={props.colors.subtext0}>Enter save  Ctrl+J/Alt+Enter newline  Esc cancel</text>
+          <text fg={props.colors.text.muted}>Enter save  Ctrl+J/Alt+Enter newline  Esc cancel</text>
         </box>
       </box>
     </Show>

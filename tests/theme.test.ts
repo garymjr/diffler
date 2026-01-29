@@ -1,15 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { catppuccinThemes, getNextThemeName, themeOrder } from "../src/theme";
+import { getNextThemeId, themeById, themeOrder } from "../src/theme";
 
 describe("theme", () => {
-  it("getNextThemeName wraps around", () => {
-    expect(getNextThemeName("mocha")).toBe("latte");
-    expect(getNextThemeName("latte", -1)).toBe("mocha");
+  it("getNextThemeId wraps around", () => {
+    expect(getNextThemeId("mocha")).toBe("rose-pine");
+    expect(getNextThemeId("latte", -1)).toBe("rose-pine-dawn");
   });
 
-  it("themeOrder matches catppuccinThemes", () => {
-    for (const name of themeOrder) {
-      expect(catppuccinThemes[name].name).toBe(name);
+  it("themeOrder matches themeById", () => {
+    for (const id of themeOrder) {
+      expect(themeById[id].id).toBe(id);
     }
   });
 });

@@ -46,10 +46,13 @@ export function ThemePanel(props: ThemePanelProps) {
           minHeight={10}
           title="Themes"
           titleAlignment="left"
+          border
+          borderStyle="rounded"
+          borderColor={props.colors.panel.border}
           padding={1}
           flexDirection="column"
           gap={1}
-          backgroundColor={props.colors.crust}
+          backgroundColor={props.colors.panel.base}
         >
           <box flexDirection="row" alignItems="center" gap={1}>
             <input
@@ -58,10 +61,12 @@ export function ThemePanel(props: ThemePanelProps) {
               placeholder="Filter themes..."
               flexGrow={1}
               focused={props.isSearchActive}
-              backgroundColor={props.isSearchActive ? props.colors.surface0 : props.colors.base}
-              textColor={props.colors.text}
-              placeholderColor={props.colors.subtext0}
-              cursorColor={props.colors.blue}
+              backgroundColor={
+                props.isSearchActive ? props.colors.panel.muted : props.colors.panel.alt
+              }
+              textColor={props.colors.text.primary}
+              placeholderColor={props.colors.text.muted}
+              cursorColor={props.colors.accent.blue}
             />
           </box>
           <box flexGrow={1} height="100%">
@@ -75,8 +80,8 @@ export function ThemePanel(props: ThemePanelProps) {
               <For
                 each={props.themes}
                 fallback={
-                  <text fg={props.colors.subtext0}>
-                    No matches. <span fg={props.colors.subtext0}>Esc</span> to clear filter.
+                  <text fg={props.colors.text.muted}>
+                    No matches. <span fg={props.colors.text.muted}>Esc</span> to clear filter.
                   </text>
                 }
               >
@@ -86,9 +91,13 @@ export function ThemePanel(props: ThemePanelProps) {
                     <box
                       paddingLeft={1}
                       paddingRight={1}
-                      backgroundColor={isSelected() ? props.colors.blue : "transparent"}
+                      backgroundColor={isSelected() ? props.colors.accent.blue : "transparent"}
                     >
-                      <text fg={isSelected() ? props.colors.base : props.colors.text}>
+                      <text
+                        fg={
+                          isSelected() ? props.colors.background.base : props.colors.text.primary
+                        }
+                      >
                         {theme.name}
                       </text>
                     </box>
@@ -97,7 +106,7 @@ export function ThemePanel(props: ThemePanelProps) {
               </For>
             </scrollbox>
           </box>
-          <text fg={props.colors.subtext0}>enter select  esc close</text>
+          <text fg={props.colors.text.muted}>enter select  esc close</text>
         </box>
       </box>
     </Show>

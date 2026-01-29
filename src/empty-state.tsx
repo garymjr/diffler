@@ -13,9 +13,9 @@ export function EmptyState(props: EmptyStateProps) {
     <box width="100%" height="100%" justifyContent="center" alignItems="center">
       <box flexDirection="column" alignItems="center" gap={1}>
         <ascii_font text={props.title} font="tiny" />
-        <text fg={props.colors.subtext0}>{props.subtitle}</text>
+        <text fg={props.colors.text.muted}>{props.subtitle}</text>
         <Show when={props.hint}>
-          {(hint) => <text fg={props.colors.subtext0}>{hint()}</text>}
+          {(hint) => <text fg={props.colors.text.muted}>{hint()}</text>}
         </Show>
       </box>
     </box>

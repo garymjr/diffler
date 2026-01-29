@@ -1,8 +1,8 @@
-import type { ThemeColors, ThemeName } from "./theme";
+import type { ThemeColors } from "./theme";
 
 type HelpPanelProps = {
   colors: ThemeColors;
-  themeName: ThemeName;
+  themeName: string;
 };
 
 export function HelpPanel(props: HelpPanelProps) {
@@ -36,38 +36,38 @@ export function HelpPanel(props: HelpPanelProps) {
       paddingBottom={1}
       flexDirection="row"
       gap={4}
-      backgroundColor={props.colors.mantle}
+      backgroundColor={props.colors.panel.base}
     >
       <box width="52%" flexDirection="column" gap={1}>
-        <text fg={props.colors.subtext0}>Global</text>
+        <text fg={props.colors.text.muted}>Global</text>
         {globalLines.map((line) => (
-          <text key={line} fg={props.colors.text}>
+          <text key={line} fg={props.colors.text.primary}>
             {line}
           </text>
         ))}
       </box>
       <box width="48%" flexDirection="column" gap={1}>
-        <text fg={props.colors.subtext0}>Panels</text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Files</span>: {filePanelLines[0]}
+        <text fg={props.colors.text.muted}>Panels</text>
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Files</span>: {filePanelLines[0]}
         </text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Files</span>: {filePanelLines[1]}
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Files</span>: {filePanelLines[1]}
         </text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Files</span>: {filePanelLines[2]}
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Files</span>: {filePanelLines[2]}
         </text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Themes</span>: {themePanelLines[0]}
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Themes</span>: {themePanelLines[0]}
         </text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Themes</span>: {themePanelLines[1]}
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Themes</span>: {themePanelLines[1]}
         </text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Themes</span>: {themePanelLines[2]}
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Themes</span>: {themePanelLines[2]}
         </text>
-        <text fg={props.colors.text}>
-          <span fg={props.colors.subtext0}>Comment</span>: {commentLines[0]}
+        <text fg={props.colors.text.primary}>
+          <span fg={props.colors.text.muted}>Comment</span>: {commentLines[0]}
         </text>
       </box>
     </box>

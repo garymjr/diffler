@@ -53,7 +53,7 @@ export function ChangesPanel(props: ChangesPanelProps) {
           padding={1}
           flexDirection="column"
           gap={1}
-          backgroundColor={props.colors.crust}
+          backgroundColor={props.colors.panel.base}
         >
           <box flexDirection="row" alignItems="center" gap={1}>
             <input
@@ -62,10 +62,12 @@ export function ChangesPanel(props: ChangesPanelProps) {
               placeholder="Filter files..."
               flexGrow={1}
               focused={props.isSearchActive}
-              backgroundColor={props.isSearchActive ? props.colors.surface0 : props.colors.base}
-              textColor={props.colors.text}
-              placeholderColor={props.colors.subtext0}
-              cursorColor={props.colors.blue}
+              backgroundColor={
+                props.isSearchActive ? props.colors.panel.muted : props.colors.background.base
+              }
+              textColor={props.colors.text.primary}
+              placeholderColor={props.colors.text.muted}
+              cursorColor={props.colors.accent.blue}
             />
           </box>
           <box flexGrow={1} height="100%">
@@ -79,15 +81,16 @@ export function ChangesPanel(props: ChangesPanelProps) {
               <For
                 each={props.entries}
                 fallback={
-                  <text fg={props.colors.subtext0}>
-                    No matches. <span fg={props.colors.subtext0}>Esc</span> to clear filter.
+                  <text fg={props.colors.text.muted}>
+                    No matches. <span fg={props.colors.text.muted}>Esc</span> to clear filter.
                   </text>
                 }
               >
                 {(entry, index) => {
                   const isSelected = () => index() === props.selectedIndex;
-                  const selectedBg = () => (isSelected() ? props.colors.blue : "transparent");
-                  const selectedFg = () => (isSelected() ? props.colors.base : props.colors.text);
+                  const selectedBg = () => (isSelected() ? props.colors.accent.blue : "transparent");
+                  const selectedFg = () =>
+                    isSelected() ? props.colors.background.base : props.colors.text.primary;
                   const added = () => entry.added ?? 0;
                   const deleted = () => entry.deleted ?? 0;
                   const hunks = () => entry.hunks ?? 0;
@@ -103,7 +106,9 @@ export function ChangesPanel(props: ChangesPanelProps) {
                     >
                       <box flexDirection="row" gap={1} alignItems="center" flexWrap="no-wrap" height={1}>
                         <text
-                          fg={isSelected() ? props.colors.base : props.statusColor(entry.status)}
+                          fg={
+                            isSelected() ? props.colors.background.base : props.statusColor(entry.status)
+                          }
                         >
                           {props.statusLabel(entry.status)}
                         </text>
@@ -113,13 +118,17 @@ export function ChangesPanel(props: ChangesPanelProps) {
                           </text>
                         </box>
                         <box flexDirection="row" gap={0} alignItems="center" flexShrink={0}>
-                          <text fg={isSelected() ? props.colors.base : props.colors.green}>
+                          <text
+                            fg={isSelected() ? props.colors.background.base : props.colors.accent.green}
+                          >
                             {addedLabel()}
                           </text>
-                          <text fg={isSelected() ? props.colors.base : props.colors.red}>
+                          <text fg={isSelected() ? props.colors.background.base : props.colors.accent.red}>
                             {deletedLabel()}
                           </text>
-                          <text fg={isSelected() ? props.colors.base : props.colors.blue}>
+                          <text
+                            fg={isSelected() ? props.colors.background.base : props.colors.accent.blue}
+                          >
                             {hunksLabel()}
                           </text>
                         </box>
@@ -130,7 +139,7 @@ export function ChangesPanel(props: ChangesPanelProps) {
               </For>
             </scrollbox>
           </box>
-          <text fg={props.colors.subtext0}>enter select  esc close</text>
+          <text fg={props.colors.text.muted}>enter select  esc close</text>
         </box>
       </box>
     </Show>

@@ -21,16 +21,16 @@ export function statusLabel(status: ChangeStatus | undefined) {
 export function statusColor(status: ChangeStatus | undefined, colors: ThemeColors) {
   switch (status) {
     case "added":
-      return colors.green;
+      return colors.accent.green;
     case "copied":
-      return colors.green;
+      return colors.accent.green;
     case "deleted":
-      return colors.red;
+      return colors.accent.red;
     case "conflict":
-      return colors.red;
+      return colors.accent.red;
     case "untracked":
-      return colors.yellow;
+      return colors.accent.yellow;
     default:
-      return colors.blue;
+      return colors.accent.blue;
   }
 }

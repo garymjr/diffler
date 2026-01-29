@@ -12,8 +12,8 @@ type AppKeyboardOptions = {
   saveComment: () => void;
   isThemePanelOpen: Accessor<boolean>;
   closeThemePanel: () => void;
-  themeSelected: Accessor<{ name: string } | null>;
-  setThemeName: (name: string) => void;
+  themeSelected: Accessor<{ id: string; name: string } | null>;
+  setThemeId: (id: string) => void;
   moveThemeSelection: (delta: number) => void;
   isThemeSearchActive: Accessor<boolean>;
   isPanelOpen: Accessor<boolean>;
@@ -56,7 +56,7 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
         if (key.name === "enter" || key.name === "return") {
           const selected = options.themeSelected();
           if (selected) {
-            options.setThemeName(selected.name);
+            options.setThemeId(selected.id);
           }
           options.closeThemePanel();
           return;
@@ -86,7 +86,7 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       if (key.name === "enter" || key.name === "return") {
         const selected = options.themeSelected();
         if (selected) {
-          options.setThemeName(selected.name);
+          options.setThemeId(selected.id);
         }
         options.closeThemePanel();
         return;
@@ -179,8 +179,6 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     }
 
     if (key.name === "t") {
-      key.preventDefault();
-      key.stopPropagation();
       options.openThemePanel();
       return;
     }
@@ -226,34 +224,34 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
       return;
     }
 
-    if (key.name === "up" || key.sequence === "\u001b[A") {
-      key.preventDefault();
-      key.stopPropagation();
-      options.moveDiffHunk(-1);
-      return;
-    }
-
     if (key.name === "down" || key.sequence === "\u001b[B") {
-      key.preventDefault();
-      key.stopPropagation();
       options.moveDiffHunk(1);
       return;
     }
 
-    if (key.name === "left" || key.name === "h") {
-      key.preventDefault();
-      key.stopPropagation();
+    if (key.name === "up" || key.sequence === "\u001b[A") {
+      options.moveDiffHunk(-1);
+      return;
+    }
+
+    if (key.name === "h") {
       options.moveFileSelection(-1);
       return;
     }
 
-    if (key.name === "right" || key.name === "l") {
-      key.preventDefault();
-      key.stopPropagation();
+    if (key.name === "l") {
       options.moveFileSelection(1);
       return;
     }
 
-    return;
+    if (key.name === "left" || key.sequence === "\u001b[D") {
+      options.moveFileSelection(-1);
+      return;
+    }
+
+    if (key.name === "right" || key.sequence === "\u001b[C") {
+      options.moveFileSelection(1);
+      return;
+    }
   });
 }
