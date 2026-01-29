@@ -21,8 +21,9 @@ export function HelpPanel(props: HelpPanelProps) {
     "enter select | esc close",
   ];
   const themePanelLines = [
-    "enter select | t/esc close",
-    "j/k/up/down move",
+    "search active on open",
+    "ctrl+n/ctrl+p/up/down move",
+    "enter select | esc close",
   ];
   const commentLines = ["enter save | ctrl+j/alt+enter newline | esc close"];
 
@@ -61,6 +62,9 @@ export function HelpPanel(props: HelpPanelProps) {
         </text>
         <text fg={props.colors.text}>
           <span fg={props.colors.subtext0}>Themes</span>: {themePanelLines[1]}
+        </text>
+        <text fg={props.colors.text}>
+          <span fg={props.colors.subtext0}>Themes</span>: {themePanelLines[2]}
         </text>
         <text fg={props.colors.text}>
           <span fg={props.colors.subtext0}>Comment</span>: {commentLines[0]}

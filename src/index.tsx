@@ -32,6 +32,8 @@ function App() {
   const [themeName, setThemeName] = createSignal<ThemeName>("mocha");
   const [isThemePanelOpen, setIsThemePanelOpen] = createSignal(false);
   const [themeIndex, setThemeIndex] = createSignal(0);
+  const [themeQuery, setThemeQuery] = createSignal("");
+  const [isThemeSearchActive, setIsThemeSearchActive] = createSignal(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = createSignal(false);
   const [isCommentPanelOpen, setIsCommentPanelOpen] = createSignal(false);
   const [isCommentFocused, setIsCommentFocused] = createSignal(false);
@@ -52,8 +54,10 @@ function App() {
   const themeEntries = createMemo<Theme[]>(() => themeOrder.map((name) => catppuccinThemes[name]));
   let diffScroll: ScrollBoxRenderable | undefined;
   let panelScroll: ScrollBoxRenderable | undefined;
+  let themePanelScroll: ScrollBoxRenderable | undefined;
   const [diffRenderable, setDiffRenderable] = createSignal<DiffRenderable | undefined>(undefined);
   let lastPanelIndex = 0;
+  let lastThemeIndex = 0;
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let diffCursorInitTimer: ReturnType<typeof setTimeout> | undefined;
@@ -64,6 +68,11 @@ function App() {
     const query = panelQuery().trim().toLowerCase();
     if (!query) return fileEntries();
     return fileEntries().filter((entry) => entry.path.toLowerCase().includes(query));
+  });
+  const filteredThemes = createMemo(() => {
+    const query = themeQuery().trim().toLowerCase();
+    if (!query) return themeEntries();
+    return themeEntries().filter((entry) => entry.name.toLowerCase().includes(query));
   });
   const changeMap = createMemo(() => {
     const map = new Map<string, ChangeItem>();
@@ -97,6 +106,12 @@ function App() {
     if (index < 0 || index >= entries.length) return null;
     return entries[index];
   });
+  const themeSelected = createMemo(() => {
+    const entries = filteredThemes();
+    const index = themeIndex();
+    if (index < 0 || index >= entries.length) return null;
+    return entries[index];
+  });
   const openPanel = () => {
     setPanelQuery("");
     const index = selectedIndex();
@@ -116,11 +131,16 @@ function App() {
   const openThemePanel = () => {
     setIsPanelOpen(false);
     setThemeIndex(Math.max(0, themeOrder.indexOf(themeName())));
+    setThemeQuery("");
     setIsThemePanelOpen(true);
+    setIsThemeSearchActive(true);
     setIsHelpPanelOpen(false);
   };
   const closeThemePanel = () => {
     setIsThemePanelOpen(false);
+    setIsThemeSearchActive(false);
+    setThemeQuery("");
+    setThemeIndex(Math.max(0, themeOrder.indexOf(themeName())));
   };
 
   const setStatus = (message: string) => {
@@ -238,7 +258,7 @@ function App() {
   };
 
   const moveThemeSelection = (delta: number) => {
-    const entries = themeEntries();
+    const entries = filteredThemes();
     if (entries.length === 0) {
       setThemeIndex(-1);
       return;
@@ -264,7 +284,7 @@ function App() {
 
   createEffect(() => {
     if (!isThemePanelOpen()) return;
-    const entries = themeEntries();
+    const entries = filteredThemes();
     if (entries.length === 0) {
       if (themeIndex() !== -1) setThemeIndex(-1);
       return;
@@ -293,6 +313,23 @@ function App() {
     if (!panelScroll) return;
     panelScroll.scrollTo({ x: 0, y: 0 });
     lastPanelIndex = 0;
+  });
+
+  createEffect(() => {
+    const index = themeIndex();
+    if (!themePanelScroll || index < 0) return;
+    const delta = index - lastThemeIndex;
+    if (delta !== 0) {
+      themePanelScroll.scrollBy(delta);
+      lastThemeIndex = index;
+    }
+  });
+
+  createEffect(() => {
+    themeQuery();
+    if (!themePanelScroll) return;
+    themePanelScroll.scrollTo({ x: 0, y: 0 });
+    lastThemeIndex = 0;
   });
 
   createEffect(() => {
@@ -668,10 +705,10 @@ function App() {
     saveComment,
     isThemePanelOpen,
     closeThemePanel,
-    themeEntries,
-    themeIndex,
+    themeSelected,
     setThemeName,
     moveThemeSelection,
+    isThemeSearchActive,
     isPanelOpen,
     closePanel,
     isPanelSearchActive,
@@ -957,9 +994,15 @@ function App() {
       />
       <ThemePanel
         isOpen={isThemePanelOpen()}
-        themes={themeEntries()}
+        isSearchActive={isThemeSearchActive()}
+        query={themeQuery()}
+        themes={filteredThemes()}
         selectedIndex={themeIndex()}
         colors={colors()}
+        onQueryChange={setThemeQuery}
+        onScrollRef={(el) => {
+          themePanelScroll = el;
+        }}
       />
     </box>
   );

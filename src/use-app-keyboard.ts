@@ -12,10 +12,10 @@ type AppKeyboardOptions = {
   saveComment: () => void;
   isThemePanelOpen: Accessor<boolean>;
   closeThemePanel: () => void;
-  themeEntries: Accessor<{ name: string }[]>;
-  themeIndex: Accessor<number>;
+  themeSelected: Accessor<{ name: string } | null>;
   setThemeName: (name: string) => void;
   moveThemeSelection: (delta: number) => void;
+  isThemeSearchActive: Accessor<boolean>;
   isPanelOpen: Accessor<boolean>;
   closePanel: () => void;
   isPanelSearchActive: Accessor<boolean>;
@@ -48,33 +48,47 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     }
 
     if (options.isThemePanelOpen()) {
-      if (key.name === "escape" || key.name === "t") {
+      if (options.isThemeSearchActive()) {
+        if (key.name === "escape") {
+          options.closeThemePanel();
+          return;
+        }
+        if (key.name === "enter" || key.name === "return") {
+          const selected = options.themeSelected();
+          if (selected) {
+            options.setThemeName(selected.name);
+          }
+          options.closeThemePanel();
+          return;
+        }
+        if (key.ctrl && key.name === "n") {
+          options.moveThemeSelection(1);
+          return;
+        }
+        if (key.ctrl && key.name === "p") {
+          options.moveThemeSelection(-1);
+          return;
+        }
+        if (key.name === "up" || key.sequence === "\u001b[A") {
+          options.moveThemeSelection(-1);
+          return;
+        }
+        if (key.name === "down" || key.sequence === "\u001b[B") {
+          options.moveThemeSelection(1);
+          return;
+        }
+        return;
+      }
+      if (key.name === "escape") {
         options.closeThemePanel();
         return;
       }
       if (key.name === "enter" || key.name === "return") {
-        const entries = options.themeEntries();
-        const selected = entries[options.themeIndex()];
+        const selected = options.themeSelected();
         if (selected) {
           options.setThemeName(selected.name);
         }
         options.closeThemePanel();
-        return;
-      }
-      if (key.name === "k") {
-        options.moveThemeSelection(-1);
-        return;
-      }
-      if (key.name === "j") {
-        options.moveThemeSelection(1);
-        return;
-      }
-      if (key.name === "up" || key.sequence === "\u001b[A") {
-        options.moveThemeSelection(-1);
-        return;
-      }
-      if (key.name === "down" || key.sequence === "\u001b[B") {
-        options.moveThemeSelection(1);
         return;
       }
       return;
@@ -165,6 +179,8 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     }
 
     if (key.name === "t") {
+      key.preventDefault();
+      key.stopPropagation();
       options.openThemePanel();
       return;
     }
