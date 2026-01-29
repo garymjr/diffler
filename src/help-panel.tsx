@@ -25,7 +25,7 @@ export function HelpPanel(props: HelpPanelProps) {
     "ctrl+n/ctrl+p/up/down move",
     "enter select | esc close",
   ];
-  const commentLines = ["enter save | ctrl+j/alt+enter newline | esc close"];
+  const commentLines = ["enter save | ctrl+j/alt+enter newline | ctrl+u/ctrl+d scroll hunk | esc close"];
 
   return (
     <box

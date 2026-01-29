@@ -1,5 +1,5 @@
 import { Show, createEffect } from "solid-js";
-import type { KeyBinding, TextareaRenderable } from "@opentui/core";
+import type { KeyBinding, ScrollBoxRenderable, TextareaRenderable } from "@opentui/core";
 import type { ThemeColors } from "./theme";
 import type { SelectionInfo } from "./comments";
 
@@ -17,6 +17,7 @@ type CommentPanelProps = {
   comment: string;
   onCommentChange: (value: string) => void;
   onSubmit: () => void;
+  onHunkScrollRef?: (ref: ScrollBoxRenderable | undefined) => void;
 };
 
 export function CommentPanel(props: CommentPanelProps) {
@@ -62,7 +63,12 @@ export function CommentPanel(props: CommentPanelProps) {
             </Show>
           </box>
           <box border borderStyle="rounded" padding={1} backgroundColor={props.colors.panel.muted}>
-            <scrollbox height={6}>
+            <scrollbox
+              height={6}
+              ref={(el) => {
+                if (props.onHunkScrollRef) props.onHunkScrollRef(el ?? undefined);
+              }}
+            >
               <Show
                 when={props.selection?.text}
                 fallback={<text fg={props.colors.text.muted}>Select lines in the diff.</text>}
@@ -88,7 +94,9 @@ export function CommentPanel(props: CommentPanelProps) {
             placeholderColor={props.colors.text.muted}
             cursorColor={props.colors.accent.blue}
           />
-          <text fg={props.colors.text.muted}>Enter save  Ctrl+J/Alt+Enter newline  Esc cancel</text>
+          <text fg={props.colors.text.muted}>
+            Enter save  Ctrl+J/Alt+Enter newline  Ctrl+U/Ctrl+D scroll hunk  Esc cancel
+          </text>
         </box>
       </box>
     </Show>

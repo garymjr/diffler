@@ -61,6 +61,7 @@ function App() {
   let diffScroll: ScrollBoxRenderable | undefined;
   let panelScroll: ScrollBoxRenderable | undefined;
   let themePanelScroll: ScrollBoxRenderable | undefined;
+  let commentHunkScroll: ScrollBoxRenderable | undefined;
   const [diffRenderable, setDiffRenderable] = createSignal<DiffRenderable | undefined>(undefined);
   let lastPanelIndex = 0;
   let lastThemeIndex = 0;
@@ -246,6 +247,13 @@ function App() {
     setIsCommentPanelOpen(false);
     setIsCommentFocused(false);
     setToast("Saved comment.");
+  };
+
+  const scrollCommentHunk = (delta: number) => {
+    if (!commentHunkScroll) return;
+    const viewportHeight = (commentHunkScroll as any).viewport?.height ?? 0;
+    const step = Math.max(1, Math.floor(viewportHeight / 2) || 1);
+    commentHunkScroll.scrollBy(delta * step);
   };
 
   const handleCommentChange = (value: string) => {
@@ -734,6 +742,7 @@ function App() {
     isCommentPanelOpen,
     closeCommentPanel,
     saveComment,
+    scrollCommentHunk,
     isThemePanelOpen,
     closeThemePanel,
     themeSelected,
@@ -1035,6 +1044,9 @@ function App() {
         comment={commentDraft()}
         onCommentChange={handleCommentChange}
         onSubmit={saveComment}
+        onHunkScrollRef={(el) => {
+          commentHunkScroll = el;
+        }}
       />
       <ThemePanel
         isOpen={isThemePanelOpen()}

@@ -10,6 +10,7 @@ type AppKeyboardOptions = {
   isCommentPanelOpen: Accessor<boolean>;
   closeCommentPanel: () => void;
   saveComment: () => void;
+  scrollCommentHunk: (delta: number) => void;
   isThemePanelOpen: Accessor<boolean>;
   closeThemePanel: () => void;
   themeSelected: Accessor<{ id: string; name: string } | null>;
@@ -43,6 +44,19 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     if (options.isCommentPanelOpen()) {
       if (key.name === "escape") {
         options.closeCommentPanel();
+        return;
+      }
+      if (key.ctrl && key.name === "u") {
+        key.preventDefault();
+        key.stopPropagation();
+        options.scrollCommentHunk(-1);
+        return;
+      }
+      if (key.ctrl && key.name === "d") {
+        key.preventDefault();
+        key.stopPropagation();
+        options.scrollCommentHunk(1);
+        return;
       }
       return;
     }
@@ -179,6 +193,8 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
     }
 
     if (key.name === "t") {
+      key.preventDefault();
+      key.stopPropagation();
       options.openThemePanel();
       return;
     }
