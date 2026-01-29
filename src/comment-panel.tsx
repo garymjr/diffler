@@ -56,7 +56,7 @@ export function CommentPanel(props: CommentPanelProps) {
         >
           <text fg={props.colors.text}>Add comment</text>
           <box flexDirection="column" gap={0}>
-            <text fg={props.colors.subtext0}>{props.selection?.filePath ?? "No selection"}</text>
+            <text fg={props.colors.subtext0}>{props.selection?.filePath ?? "No hunk selected"}</text>
             <Show when={props.selection?.lineLabel}>
               {(label) => <text fg={props.colors.subtext0}>Lines: {label()}</text>}
             </Show>
@@ -65,7 +65,7 @@ export function CommentPanel(props: CommentPanelProps) {
             <scrollbox height={6}>
               <Show
                 when={props.selection?.text}
-                fallback={<text fg={props.colors.subtext0}>Select lines in the diff.</text>}
+                fallback={<text fg={props.colors.subtext0}>No hunk selected.</text>}
               >
                 {(text) => <text selectable>{text()}</text>}
               </Show>

@@ -4,12 +4,9 @@ import { useSelectionHandler } from "@opentui/solid";
 import type { Accessor } from "solid-js";
 import {
   buildLineStarts,
-  extractLineRanges,
-  formatLineRanges,
   getLineRangeFromSelection,
   isRenderableDescendant,
   type DiffLine,
-  type SelectionInfo,
 } from "./comments";
 
 type DiffSelectionOptions = {
@@ -18,15 +15,13 @@ type DiffSelectionOptions = {
   diffLines: Accessor<DiffLine[]>;
   diffRenderable: Accessor<DiffRenderable | undefined>;
   diffScroll?: Accessor<ScrollBoxRenderable | undefined>;
-  setSelectionInfo: (value: SelectionInfo | null) => void;
   onCursorMove?: (line: number) => void;
 };
 
 export function useDiffSelection(options: DiffSelectionOptions) {
   useSelectionHandler((selection) => {
     if (options.isBlocked()) return;
-    const filePath = options.selectedPath();
-    if (!filePath) return;
+    if (!options.selectedPath()) return;
     const lines = options.diffLines();
     const diffRenderable = options.diffRenderable();
     if (!diffRenderable || lines.length === 0) return;
@@ -62,23 +57,7 @@ export function useDiffSelection(options: DiffSelectionOptions) {
     );
     if (!lineRange) return;
 
-    const clampedStart = Math.max(0, lineRange.startLine);
-    const clampedEnd = Math.min(lines.length - 1, lineRange.endLine);
+    const clampedStart = Math.max(0, Math.min(lines.length - 1, lineRange.startLine));
     options.onCursorMove?.(clampedStart);
-
-    const selectedText = selection.getSelectedText();
-    if (!selectedText || !selectedText.trim()) return;
-    const { oldRange, newRange } = extractLineRanges(lines, clampedStart, clampedEnd);
-    const lineLabel = formatLineRanges(oldRange, newRange);
-
-    options.setSelectionInfo({
-      filePath,
-      text: selectedText,
-      startLine: clampedStart,
-      endLine: clampedEnd,
-      oldRange,
-      newRange,
-      lineLabel,
-    });
   });
 }

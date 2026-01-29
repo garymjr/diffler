@@ -12,7 +12,14 @@ import { catppuccinThemes, themeOrder, type Theme, type ThemeName } from "./them
 import { EmptyState } from "./empty-state";
 import type { ChangeItem } from "./types";
 import { copyToClipboard } from "./clipboard";
-import { buildDiffLines, formatCommentEntries, type CommentEntry, type SelectionInfo } from "./comments";
+import {
+  buildDiffLines,
+  extractLineRanges,
+  formatCommentEntries,
+  formatLineRanges,
+  type CommentEntry,
+  type SelectionInfo,
+} from "./comments";
 import { statusColor, statusLabel } from "./status";
 import { useAppKeyboard } from "./use-app-keyboard";
 import { useDiffSelection } from "./use-diff-selection";
@@ -38,7 +45,6 @@ function App() {
   const [isCommentPanelOpen, setIsCommentPanelOpen] = createSignal(false);
   const [isCommentFocused, setIsCommentFocused] = createSignal(false);
   const [commentDraft, setCommentDraft] = createSignal("");
-  const [selectionInfo, setSelectionInfo] = createSignal<SelectionInfo | null>(null);
   const [commentSelection, setCommentSelection] = createSignal<SelectionInfo | null>(null);
   const [comments, setComments] = createSignal<CommentEntry[]>([]);
   const [statusMessage, setStatusMessage] = createSignal<string | null>(null);
@@ -157,10 +163,39 @@ function App() {
       setToastMessage(null);
     }, 2200);
   };
+  const buildHunkSelection = (): SelectionInfo | null => {
+    const filePath = selectedPath();
+    if (!filePath) return null;
+    const lines = diffLines();
+    if (lines.length === 0) return null;
+    const range = currentHunkRange();
+    if (!range) return null;
+    const start = Math.max(0, Math.min(lines.length - 1, range.start));
+    const end = Math.max(start, Math.min(lines.length - 1, range.end));
+    const text = lines
+      .slice(start, end + 1)
+      .map((line) => {
+        const prefix = line.type === "addition" ? "+" : line.type === "deletion" ? "-" : " ";
+        const content = (line.content ?? "").replace(/\r?\n/g, "");
+        return `${prefix}${content}`;
+      })
+      .join("\n");
+    const { oldRange, newRange } = extractLineRanges(lines, start, end);
+    const lineLabel = formatLineRanges(oldRange, newRange);
+    return {
+      filePath,
+      text,
+      startLine: start,
+      endLine: end,
+      oldRange,
+      newRange,
+      lineLabel,
+    };
+  };
   const openCommentPanel = () => {
-    const selection = selectionInfo();
+    const selection = buildHunkSelection();
     if (!selection) {
-      setStatus("No selection.");
+      setStatus("No hunk selected.");
       return;
     }
     setCommentSelection(selection);
@@ -183,7 +218,7 @@ function App() {
   const saveComment = () => {
     const selection = commentSelection();
     if (!selection) {
-      setStatus("No selection.");
+      setStatus("No hunk selected.");
       return;
     }
     const comment = commentDraft().trim();
@@ -361,7 +396,6 @@ function App() {
 
   createEffect(() => {
     selectedPath();
-    setSelectionInfo(null);
     setCommentSelection(null);
     setIsCommentPanelOpen(false);
   });
@@ -487,7 +521,6 @@ function App() {
     side.requestRender?.();
   };
   const clearDiffSelection = () => {
-    setSelectionInfo(null);
     setIsDiffCursorActive(true);
   };
   const moveFileSelection = (delta: number) => {
@@ -512,7 +545,6 @@ function App() {
     const rawLine = event.y - codeRenderable.y;
     if (!Number.isFinite(rawLine)) return;
     const lineIndex = Math.max(0, Math.min(getDiffLineCount() - 1, Math.floor(rawLine)));
-    setSelectionInfo(null);
     setIsDiffCursorActive(true);
     setDiffCursorLine(lineIndex);
     queueMicrotask(() => {
@@ -614,7 +646,6 @@ function App() {
       }
     }
     if (next === undefined) return;
-    setSelectionInfo(null);
     setDiffCursorLine(next);
     queueMicrotask(() => {
       ensureHunkVisible(next);
@@ -738,7 +769,6 @@ function App() {
     diffLines,
     diffRenderable,
     diffScroll: () => diffScroll,
-    setSelectionInfo,
     onCursorMove: (line) => {
       setIsDiffCursorActive(true);
       setDiffCursorLine(line);

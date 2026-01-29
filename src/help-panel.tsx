@@ -11,7 +11,7 @@ export function HelpPanel(props: HelpPanelProps) {
     `p files | t themes (${props.themeName})`,
     "j/k/up/down jump hunk",
     "v multi-select",
-    "mouse drag select | c comment selection",
+    "mouse drag select | c comment hunk",
     "y copy comments (file)",
   ];
 
