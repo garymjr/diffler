@@ -909,11 +909,13 @@ function App() {
                           view="unified"
                           filetype={data().language}
                           syntaxStyle={theme().syntaxStyle}
+                          fg={theme().colors.text.primary}
                           addedBg={theme().diff.added.bg}
                           removedBg={theme().diff.removed.bg}
                           contextBg={theme().diff.context.bg}
                           addedSignColor={theme().diff.added.sign}
                           removedSignColor={theme().diff.removed.sign}
+                          lineNumberFg={theme().colors.text.muted}
                           addedLineNumberBg={theme().diff.added.line}
                           removedLineNumberBg={theme().diff.removed.line}
                           selectionBg={theme().colors.selection.bg}
