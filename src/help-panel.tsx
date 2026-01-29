@@ -9,23 +9,17 @@ export function HelpPanel(props: HelpPanelProps) {
   const globalLines = [
     "? help | q/esc quit | r refresh",
     `p files | t themes (${props.themeName})`,
-    "j/k/up/down jump hunk",
-    "v multi-select",
-    "mouse drag select | c comment hunk",
-    "y copy comments (file)",
+    "j/k/up/down jump hunk | v multi-select",
+    "mouse drag select | c comment | y copy comments",
   ];
 
-  const filePanelLines = [
-    "search active on open",
-    "ctrl+n/ctrl+p/up/down move",
-    "enter select | esc close",
+  const panelLines = [
+    "All panels: esc close",
+    "Files/Themes: move ctrl+n/p or up/down",
+    "Files/Themes: select enter",
+    "Comment: save enter | newline ctrl+j/alt+enter",
+    "Comment: scroll ctrl+u/d",
   ];
-  const themePanelLines = [
-    "search active on open",
-    "ctrl+n/ctrl+p/up/down move",
-    "enter select | esc close",
-  ];
-  const commentLines = ["enter save | ctrl+j/alt+enter newline | ctrl+u/ctrl+d scroll hunk | esc close"];
 
   return (
     <box
@@ -48,27 +42,11 @@ export function HelpPanel(props: HelpPanelProps) {
       </box>
       <box width="48%" flexDirection="column" gap={1}>
         <text fg={props.colors.text.muted}>Panels</text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Files</span>: {filePanelLines[0]}
-        </text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Files</span>: {filePanelLines[1]}
-        </text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Files</span>: {filePanelLines[2]}
-        </text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Themes</span>: {themePanelLines[0]}
-        </text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Themes</span>: {themePanelLines[1]}
-        </text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Themes</span>: {themePanelLines[2]}
-        </text>
-        <text fg={props.colors.text.primary}>
-          <span fg={props.colors.text.muted}>Comment</span>: {commentLines[0]}
-        </text>
+        {panelLines.map((line) => (
+          <text key={line} fg={props.colors.text.primary}>
+            {line}
+          </text>
+        ))}
       </box>
     </box>
   );
