@@ -194,7 +194,7 @@ export const themeOrder: ThemeId[] = [
 
 const latte = buildTheme({
   id: "latte",
-  name: "Latte",
+  name: "Catppuccin Latte",
   palette: {
     background: {
       base: "#eff1f5",
@@ -238,7 +238,7 @@ const latte = buildTheme({
 
 const frappe = buildTheme({
   id: "frappe",
-  name: "Frappe",
+  name: "Catppuccin Frappe",
   palette: {
     background: {
       base: "#303446",
@@ -282,7 +282,7 @@ const frappe = buildTheme({
 
 const macchiato = buildTheme({
   id: "macchiato",
-  name: "Macchiato",
+  name: "Catppuccin Macchiato",
   palette: {
     background: {
       base: "#24273a",
@@ -326,7 +326,7 @@ const macchiato = buildTheme({
 
 const mocha = buildTheme({
   id: "mocha",
-  name: "Mocha",
+  name: "Catppuccin Mocha",
   palette: {
     background: {
       base: "#1e1e2e",
