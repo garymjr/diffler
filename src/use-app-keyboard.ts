@@ -110,7 +110,7 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
 
     if (options.isPanelOpen()) {
       if (options.isPanelSearchActive()) {
-        if (key.name === "p") {
+        if (key.name === "p" && !key.ctrl) {
           options.closePanel();
           return;
         }
@@ -144,7 +144,7 @@ export function useAppKeyboard(options: AppKeyboardOptions) {
         }
         return;
       }
-      if (key.name === "p") {
+      if (key.name === "p" && !key.ctrl) {
         key.preventDefault();
         key.stopPropagation();
         options.closePanel();
